@@ -1,0 +1,4 @@
+{
+  "_readme": "Hand fixes applied on top of the scraped files. Re-running the scraper never touches this file. Key by course code; any field here replaces the scraped one (e.g. prereqs, title, points, tags). Set \"reviewed\": true once someone has checked a course against the bulletin.",
+  "courses": {}
+}

@@ -6,6 +6,7 @@
 // Courses with no published time get a placeholder built from Columbia's standard
 // class slots so the calendar has something to show; the UI labels those as sample.
 
+import { numberKey } from "./courses";
 import { DOC_TIME_TERMS, DOC_TIMES } from "./directory.generated";
 
 export interface Meeting {
@@ -24,7 +25,6 @@ const KNOWN: Record<string, Meeting> = Object.fromEntries(
 );
 // Hand-entered codes sometimes use another letter prefix (CSOR E4231 vs the Directory's CSOR W4231).
 // Fall back to subject + number only when exactly one Directory course has it.
-const numberKey = (code: string) => code.replace(/ [A-Z]*(?=\d)/, " ");
 const byNumber = new Map<string, Set<string>>();
 for (const [code] of DOC_TIMES) byNumber.set(numberKey(code), (byNumber.get(numberKey(code)) ?? new Set()).add(code));
 

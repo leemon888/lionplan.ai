@@ -51,6 +51,42 @@ Why it's built this way:
 - **One set of edit rules.** Drag-and-drop and AI tool calls both go through `lib/plan-ops.ts`, and every change
   can be undone.
 
+## Course data: scraping the bulletin
+
+Course data comes from the Columbia Bulletin through `scripts/scrape_bulletin.py`. Right now it scrapes
+**Computer Science**: every course on the CS page (COMS plus joint CSEE, CSOR, CBMF... courses) and the math and
+statistics courses the CS major requires from other departments.
+
+Run it on your laptop (Python 3.10+). From the repo root:
+
+```bash
+pip install -r scripts/requirements.txt
+python scripts/scrape_bulletin.py          # writes data/catalog/coms.json and cs-cognates.json
+python -m unittest discover scripts        # scraper tests
+npm test                                   # app tests, including the catalog
+```
+
+How the catalog is built (`data/courses.ts`), later layers winning:
+1. hand-entered starter rows (Core, Econ, Math, Stats not scraped yet)
+2. the Directory of Classes (`data/directory.generated.ts`, `npm run import:doc`): every course offered this year,
+   which semesters, Barnard, and last published times. Fills in courses nobody has scraped yet, with short titles.
+3. scraped files in `data/catalog/*.json`, regenerated whenever you re-run the scraper
+4. hand fixes in `data/catalog/overrides.json`, which the scraper never touches
+
+The same course can be written with different prefixes (`CSOR E4231` / `CSOR W4231`). Layers match on the exact
+code, then on subject + number when only one course has it (Barnard's `BIOL BC3320` and `BIOL UN3320` are different
+courses).
+
+Checking prerequisites: the scraper turns "Prerequisites: (COMS W3134) or (COMS W3137)" into rules. When the text says
+something it can't turn into rules ("or the instructor's permission", "knowledge of C"), the course gets
+`"needsReview": true` with a `reviewReason`. Look those up, then put the correct rule in `overrides.json`:
+
+```json
+"COMS W4118": { "prereqs": [["CSEE W3827"], ["COMS W3136", "COMS W3157"]], "needsReview": false, "reviewed": true }
+```
+
+To add a department, add an entry to `SOURCES` at the top of the scraper.
+
 ## Data status (read before launch)
 
 `npm run import:doc` pulls every undergraduate-facing course offered this fall or next spring from the public

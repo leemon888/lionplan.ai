@@ -41,5 +41,9 @@ yarn-error.log*
 next-env.d.ts
 !.env.example
 
+# scraper page cache
+scripts/.cache/
+__pycache__/
+
 # Directory of Classes download cache (scripts/import-doc.ts)
 /scripts/.doc-cache/
