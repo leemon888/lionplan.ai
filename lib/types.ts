@@ -66,13 +66,23 @@ export interface Term {
 
 export type School = "CC" | "SEAS" | "Barnard" | "GS" | "Other";
 
+export interface Study {
+  name: string;
+  kind: "major" | "minor";
+  status: "declared" | "potential";
+  /** Set when we can track this program's requirements (data/programs.ts). */
+  programId?: string;
+}
+
 export interface Profile {
   name?: string;
   school: School;
   classYear: number; // graduation year, e.g. 2029
   majors: string[]; // program ids we can track (CC only for now)
-  /** What the student said they study, in their words, cleaned up ("Math and CS"). */
+  /** Short label for what they study ("Mathematics and Computer Science"). */
   studying?: string;
+  /** Majors and minors as picked in onboarding, declared or potential. */
+  studies?: Study[];
   goals?: string;
   constraints?: string;
 }
