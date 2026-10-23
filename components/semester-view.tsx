@@ -5,8 +5,10 @@ import { conflicts } from "@/data/sections";
 import { analyzePlan, currentAndNext, pointsOf } from "@/lib/engine";
 import { placeCourse } from "@/lib/dnd";
 import { removeCourse } from "@/lib/plan-ops";
+import type { Slot } from "@/lib/slots";
 import { usePlanStore } from "@/lib/store";
 import { CoursePicker } from "./course-picker";
+import { SlotMatches } from "./slot-matches";
 import { WeekCalendar } from "./week-calendar";
 
 export function SemesterView({ which }: { which: "current" | "next" }) {
@@ -15,6 +17,7 @@ export function SemesterView({ which }: { which: "current" | "next" }) {
   const setChatMode = usePlanStore((s) => s.setChatMode);
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [slots, setSlots] = useState<Slot[]>([]);
 
   const terms = currentAndNext(plan);
   const term = which === "current" ? terms.current : terms.next;
@@ -85,13 +88,20 @@ export function SemesterView({ which }: { which: "current" | "next" }) {
         </div>
       )}
 
-      <WeekCalendar
-        termId={term.id}
-        codes={term.courses}
-        planned={which === "next"}
-        conflicted={conflicted}
-        onRemove={(code) => apply((p) => removeCourse(p, code))}
-      />
+      <div className="gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_300px]">
+        <WeekCalendar
+          termId={term.id}
+          codes={term.courses}
+          planned={which === "next"}
+          conflicted={conflicted}
+          onRemove={(code) => apply((p) => removeCourse(p, code))}
+          slots={slots}
+          onSlotsChange={setSlots}
+        />
+        <div className="mt-6 xl:mt-0">
+          <SlotMatches termId={term.id} slots={slots} onClear={() => setSlots([])} onNotice={setNotice} />
+        </div>
+      </div>
 
       {term.courses.length === 0 && (
         <p className="mt-4 text-sm text-muted">

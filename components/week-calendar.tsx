@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { COURSE_BY_CODE } from "@/data/courses";
 import { formatTime, meetingFor, toMinutes } from "@/data/sections";
 import { dropCourse, isCourseDrag } from "@/lib/dnd";
+import { type Slot, sameSlot, slotRuns } from "@/lib/slots";
 import { usePlanStore } from "@/lib/store";
 import { toneFor } from "@/lib/tone";
 
@@ -24,16 +25,56 @@ export function WeekCalendar({
   planned,
   conflicted,
   onRemove,
+  slots,
+  onSlotsChange,
 }: {
   termId: string;
   codes: string[];
   planned: boolean;
   conflicted: Set<string>;
   onRemove: (code: string) => void;
+  /** Hours the student picked. Pass onSlotsChange to let them click or drag to pick. */
+  slots?: Slot[];
+  onSlotsChange?: (slots: Slot[]) => void;
 }) {
   const flash = usePlanStore((s) => s.flash);
   const [over, setOver] = useState(false);
   const hours = Array.from({ length: END - START }, (_, i) => START + i);
+
+  // Click an hour to pick or unpick it; drag to do several. The first hour decides which.
+  const grid = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ on: boolean; slots: Slot[] } | null>(null);
+  const slotAt = (x: number, y: number): Slot | null => {
+    const r = grid.current?.getBoundingClientRect();
+    if (!r || x < r.left || x >= r.right || y < r.top || y >= r.bottom) return null;
+    const day = DAYS[Math.floor(((x - r.left) / r.width) * 5)]?.[0];
+    const hour = START + Math.floor((y - r.top) / HOUR);
+    return day && hour < END ? { day, hour } : null;
+  };
+  const setSlot = (slot: Slot) => {
+    const d = drag.current;
+    if (!d || !onSlotsChange) return;
+    const has = d.slots.some((s) => sameSlot(s, slot));
+    if (has === d.on) return;
+    d.slots = d.on ? [...d.slots, slot] : d.slots.filter((s) => !sameSlot(s, slot));
+    onSlotsChange(d.slots);
+  };
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      if (!drag.current) return;
+      const slot = slotAt(e.clientX, e.clientY);
+      if (slot) setSlot(slot);
+    };
+    const end = () => (drag.current = null);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+  });
 
   const blocks = codes.flatMap((code) => {
     const m = meetingFor(code, termId);
@@ -70,6 +111,16 @@ export function WeekCalendar({
             ))}
           </div>
           <div
+            ref={grid}
+            onPointerDown={(e) => {
+              if (!onSlotsChange || e.button !== 0 || (e.target as HTMLElement).closest("[data-block]")) return;
+              const slot = slotAt(e.clientX, e.clientY);
+              if (!slot) return;
+              e.preventDefault();
+              const current = slots ?? [];
+              drag.current = { on: !current.some((s) => sameSlot(s, slot)), slots: current };
+              setSlot(slot);
+            }}
             onDragOver={(e) => {
               if (!isCourseDrag(e)) return;
               e.preventDefault();
@@ -80,7 +131,7 @@ export function WeekCalendar({
               setOver(false);
               dropCourse(e, termId);
             }}
-            className={`relative border-l border-line-soft transition-colors ${over ? "bg-accent-tint" : ""}`}
+            className={`relative touch-pan-y border-l border-line-soft transition-colors ${over ? "bg-accent-tint" : ""} ${onSlotsChange ? "cursor-cell select-none" : ""}`}
             style={{ height: (END - START) * HOUR }}
           >
             {hours.map((h, i) => (
@@ -89,6 +140,14 @@ export function WeekCalendar({
             {[1, 2, 3, 4].map((d) => (
               <div key={d} className="absolute inset-y-0 border-l border-line-soft" style={{ left: `${d * 20}%` }} />
             ))}
+            {slotRuns(slots ?? []).map((r) => (
+              <div
+                key={r.day + r.from}
+                aria-hidden="true"
+                className="pointer-events-none absolute border-y-2 border-accent bg-accent-tint"
+                style={{ top: (r.from - START) * HOUR, height: (r.to - r.from) * HOUR, left: `${"MTWRF".indexOf(r.day) * 20}%`, width: "20%" }}
+              />
+            ))}
             {blocks.map((b) => {
               const c = COURSE_BY_CODE[b.code];
               const isFlash = flash === b.code;
@@ -96,6 +155,7 @@ export function WeekCalendar({
               return (
                 <div
                   key={b.key}
+                  data-block
                   className={`group absolute box-border overflow-hidden rounded-lg border px-2 py-1.5 ${toneFor(b.code)} bg-tone-bg text-tone-ink ${planned ? "border-dashed" : ""} border-tone-line ${isFlash ? "anim-pop ring-2 ring-accent" : ""} ${clash ? "ring-2 ring-warn-ink" : ""}`}
                   style={{ top: b.top, height: b.height, left: `calc(${b.day * 20}% + 4px)`, width: "calc(20% - 8px)" }}
                 >
