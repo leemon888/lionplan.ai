@@ -1,4 +1,3 @@
-import { google } from "@ai-sdk/google";
 import {
   convertToModelMessages,
   createUIMessageStreamResponse,
@@ -11,6 +10,7 @@ import { z } from "zod";
 import details from "@/data/catalog/bulletin-details.json";
 import { COURSE_BY_CODE, resolveCode } from "@/data/courses";
 import { buildInstructions } from "@/lib/ai-context";
+import { chatModel, friendlyError } from "@/lib/model";
 import { searchCourses } from "@/lib/search";
 import { clientTools } from "@/lib/tools";
 import type { Plan } from "@/lib/types";
@@ -33,7 +33,9 @@ export async function POST(req: Request) {
   const { messages, plan }: { messages: UIMessage[]; plan: Plan | null } = await req.json();
 
   const result = streamText({
-    model: google(process.env.GEMINI_MODEL ?? "gemini-3.8-flash"),
+    model: chatModel(),
+    // One retry of the whole chain; chatModel already moves to the next model when one is overloaded.
+    maxRetries: 1,
     instructions: buildInstructions(plan),
     messages: await convertToModelMessages(messages),
     stopWhen: isStepCount(8),
@@ -70,5 +72,12 @@ export async function POST(req: Request) {
   });
 
   // originalMessages: a continuation after a client tool call keeps the same assistant message.
-  return createUIMessageStreamResponse({ stream: toUIMessageStream({ stream: result.stream, originalMessages: messages }) });
+  return createUIMessageStreamResponse({ stream: toUIMessageStream({
+      stream: result.stream,
+      originalMessages: messages,
+      onError: (error) => {
+        console.error(error);
+        return friendlyError(error);
+      },
+    }) });
 }
