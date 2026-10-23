@@ -127,7 +127,7 @@ function TermColumn({ term, warnings, onNotice }: { term: Term; warnings: Warnin
               key={code}
               draggable
               onDragStart={(e) => startCourseDrag(e, code)}
-              title={c?.prereqs ? `Prereqs: ${c.prereqs.map((g) => g.join(" or ")).join("; ")}` : undefined}
+              title={c?.prereqText ? `Prereqs: ${c.prereqText}` : c?.prereqs ? `Prereqs: ${c.prereqs.map((g) => g.join(" or ")).join("; ")}` : undefined}
               className={`group flex cursor-grab items-start gap-2 rounded-lg border bg-bg p-2 active:cursor-grabbing ${flash === code ? "anim-pop border-accent" : "border-line"}`}
             >
               <span aria-hidden="true" className={`mt-1 size-2 flex-none rounded-full ${toneFor(code)} bg-tone-ink`} />

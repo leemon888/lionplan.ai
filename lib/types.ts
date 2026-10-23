@@ -15,6 +15,15 @@ export interface Course {
   prereqs?: string[][];
   /** Free-form tags, e.g. "core", "seminar". */
   tags?: string[];
+  /** Prerequisite and corequisite text as written in the bulletin. */
+  prereqText?: string;
+  coreqText?: string;
+  /** The scraper couldn't fully turn the prereq text into rules; a person should check it. */
+  needsReview?: boolean;
+  /** Someone checked this course against the bulletin (set in data/catalog/overrides.json). */
+  reviewed?: boolean;
+  /** Where the data came from ("bulletin" or "hand"). */
+  origin?: "bulletin" | "hand";
 }
 
 /** Which courses a counting rule matches. All given fields must match. */

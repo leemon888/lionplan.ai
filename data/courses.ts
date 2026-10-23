@@ -1,8 +1,14 @@
 import type { Course } from "@/lib/types";
+import comsCatalog from "./catalog/coms.json";
+import csCognates from "./catalog/cs-cognates.json";
+import overrides from "./catalog/overrides.json";
 
-// Starter catalog for CC Core + Econ, Math, CS.
-// STARTER DATA: titles, points and prereqs are hand-entered and must be checked
-// against bulletin.columbia.edu before launch. Prereqs only list what we're sure of.
+// The course catalog is built from three layers, later ones winning:
+//   1. hand-entered rows below (Core, Econ, Math, Stats that haven't been scraped yet)
+//   2. scraped bulletin files in data/catalog/*.json (run scripts/scrape_bulletin.py)
+//   3. hand fixes in data/catalog/overrides.json (survive re-scraping)
+//
+// Hand-entered rows are STARTER DATA: check them against bulletin.columbia.edu.
 //
 // Row format: [code, title, points, prereqs?, tags?]
 // prereqs are AND-of-ORs: [["A","B"],["C"]] means (A or B) and C.
@@ -120,14 +126,54 @@ export function parseCode(code: string): { dept: string; level: number } {
   return { dept, level: digit ? Number(digit) * 1000 : 0 };
 }
 
-export const COURSES: Course[] = rows.map(([code, title, points, prereqs, tags]) => ({
+const HAND: Course[] = rows.map(([code, title, points, prereqs, tags]) => ({
   code,
   title,
   points,
   ...parseCode(code),
   ...(prereqs ? { prereqs } : {}),
   ...(tags ? { tags } : {}),
+  origin: "hand",
 }));
+
+type Scraped = Omit<Course, "origin"> & { reviewReason?: string; source?: string };
+const SCRAPED = [...(comsCatalog as Scraped[]), ...(csCognates as Scraped[])];
+const OVERRIDES = (overrides as { courses: Record<string, Partial<Course>> }).courses;
+
+export function buildCatalog(hand: Course[], scraped: Scraped[], fixes: Record<string, Partial<Course>>): Course[] {
+  const byCode = new Map<string, Course>(hand.map((c) => [c.code, c]));
+  for (const s of scraped) {
+    const prev = byCode.get(s.code);
+    byCode.set(s.code, {
+      code: s.code,
+      title: s.title || prev?.title || s.code,
+      points: s.points || prev?.points || 3,
+      dept: s.dept,
+      level: s.level,
+      description: s.description || prev?.description,
+      prereqText: s.prereqText || undefined,
+      coreqText: s.coreqText || undefined,
+      // Bulletin prereqs win; fall back to hand ones if the scraper found none.
+      prereqs: s.prereqs?.length ? s.prereqs : prev?.prereqs,
+      tags: [...new Set([...(prev?.tags ?? []), ...(s.tags ?? [])])],
+      needsReview: s.needsReview || undefined,
+      origin: "bulletin",
+    });
+  }
+  for (const [code, fix] of Object.entries(fixes)) {
+    const prev = byCode.get(code);
+    byCode.set(code, { ...(prev ?? { code, title: code, points: 3, ...parseCode(code) }), ...fix, code });
+  }
+  // Keep only prereq codes we actually know, so checks never point at a missing course.
+  const known = new Set(byCode.keys());
+  return [...byCode.values()].map((c) => {
+    if (!c.prereqs) return c;
+    const prereqs = c.prereqs.map((g) => g.filter((p) => known.has(p))).filter((g) => g.length);
+    return { ...c, prereqs: prereqs.length ? prereqs : undefined };
+  });
+}
+
+export const COURSES: Course[] = buildCatalog(HAND, SCRAPED, OVERRIDES);
 
 export const COURSE_BY_CODE: Record<string, Course> = Object.fromEntries(
   COURSES.map((c) => [c.code, c]),
