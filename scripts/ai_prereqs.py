@@ -149,12 +149,21 @@ def validate(raw: dict, resolve: Resolver) -> dict:
 # Gemini
 # ---------------------------------------------------------------------------
 
-def api_key() -> str:
-    key = os.environ.get("GOOGLE_GENERATIVE_AI_API_KEY")
+DEFAULT_MODEL = "gemini-3.8-flash"
+
+
+def env_value(name: str) -> str | None:
+    """Reads a setting from the environment, falling back to .env.local."""
+    value = os.environ.get(name)
     env = ROOT / ".env.local"
-    if not key and env.exists():
-        m = re.search(r"^GOOGLE_GENERATIVE_AI_API_KEY\s*=\s*(\S+)", env.read_text(encoding="utf-8"), re.M)
-        key = m.group(1).strip("\"'") if m else None
+    if not value and env.exists():
+        m = re.search(rf"^{name}\s*=\s*(\S+)", env.read_text(encoding="utf-8"), re.M)
+        value = m.group(1).strip("\"'") if m else None
+    return value
+
+
+def api_key() -> str:
+    key = env_value("GOOGLE_GENERATIVE_AI_API_KEY")
     if not key:
         sys.exit("Set GOOGLE_GENERATIVE_AI_API_KEY (or put it in .env.local). Free key: https://aistudio.google.com/apikey")
     return key
@@ -236,7 +245,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--only", help="subject code, e.g. COMS")
     ap.add_argument("--limit", type=int, help="at most this many courses")
-    ap.add_argument("--model", default="gemini-2.5-flash")
+    ap.add_argument("--model", default=env_value("GEMINI_MODEL") or DEFAULT_MODEL)
     ap.add_argument("--pause", type=float, default=4.0, help="seconds between requests")
     args = ap.parse_args(argv)
 

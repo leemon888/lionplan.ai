@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   const { messages, plan }: { messages: UIMessage[]; plan: Plan | null } = await req.json();
 
   const result = streamText({
-    model: google(process.env.GEMINI_MODEL ?? "gemini-2.5-flash"),
+    model: google(process.env.GEMINI_MODEL ?? "gemini-3.8-flash"),
     instructions: buildInstructions(plan),
     messages: await convertToModelMessages(messages),
     stopWhen: isStepCount(8),
