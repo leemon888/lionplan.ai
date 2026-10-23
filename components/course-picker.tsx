@@ -35,27 +35,27 @@ export function CoursePicker({ onPick, onClose }: { onPick: (code: string) => vo
         }}
         placeholder="Code or title"
         aria-label="Search courses"
-        className="w-full rounded-md border border-ink bg-surface px-2.5 py-1.5 text-sm outline-none"
+        className="w-full rounded-md border border-accent bg-raised px-2.5 py-1.5 text-sm outline-none"
       />
       {results.length > 0 && (
-        <ul className="absolute z-20 mt-1 w-72 max-w-[80vw] overflow-hidden rounded-md border border-line bg-surface shadow-lg">
+        <ul className="absolute right-0 z-30 mt-1 w-72 max-w-[80vw] overflow-hidden rounded-md border border-line bg-raised shadow-lg">
           {results.map((c, i) => (
             <li key={c.code}>
               <button
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => onPick(c.code)}
                 onMouseEnter={() => setActive(i)}
-                className={`block w-full px-3 py-2 text-left text-sm ${i === active ? "bg-sky-tint" : ""}`}
+                className={`block w-full px-3 py-2 text-left text-sm ${i === active ? "bg-accent-tint" : ""}`}
               >
                 <span className="font-medium">{c.code}</span>
-                <span className="block truncate text-ink-soft">{c.title}</span>
+                <span className="block truncate text-muted">{c.title}</span>
               </button>
             </li>
           ))}
         </ul>
       )}
       {q.trim() && results.length === 0 && (
-        <p className="mt-1 text-xs text-ink-faint">Not in the catalog yet. Try the course code.</p>
+        <p className="mt-1 text-xs text-muted">Not in the catalog yet. Try the course code.</p>
       )}
     </div>
   );

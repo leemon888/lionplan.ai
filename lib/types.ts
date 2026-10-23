@@ -48,7 +48,7 @@ export interface Requirement {
 export interface Program {
   id: string; // e.g. "cc-core", "cc-econ"
   name: string;
-  school: "CC";
+  school: School;
   type: "core" | "major";
   sourceUrl: string;
   /** Date someone last checked this against the bulletin. */
@@ -64,11 +64,15 @@ export interface Term {
   courses: string[];
 }
 
+export type School = "CC" | "SEAS" | "Barnard" | "GS" | "Other";
+
 export interface Profile {
   name?: string;
-  school: "CC";
+  school: School;
   classYear: number; // graduation year, e.g. 2029
-  majors: string[]; // program ids
+  majors: string[]; // program ids we can track (CC only for now)
+  /** What the student said they study, in their words, cleaned up ("Math and CS"). */
+  studying?: string;
   goals?: string;
   constraints?: string;
 }

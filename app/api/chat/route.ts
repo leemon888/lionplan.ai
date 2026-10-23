@@ -16,6 +16,11 @@ import type { Plan } from "@/lib/types";
 
 export const maxDuration = 30;
 
+/** Lets the client know whether the assistant is configured, without exposing the key. */
+export function GET() {
+  return Response.json({ ai: !!process.env.GOOGLE_GENERATIVE_AI_API_KEY });
+}
+
 export async function POST(req: Request) {
   if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     return new Response(
@@ -57,5 +62,6 @@ export async function POST(req: Request) {
     },
   });
 
-  return createUIMessageStreamResponse({ stream: toUIMessageStream({ stream: result.stream }) });
+  // originalMessages: a continuation after a client tool call keeps the same assistant message.
+  return createUIMessageStreamResponse({ stream: toUIMessageStream({ stream: result.stream, originalMessages: messages }) });
 }
