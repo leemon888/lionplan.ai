@@ -1,6 +1,6 @@
 import type { Course } from "@/lib/types";
-import comsCatalog from "./catalog/coms.json";
-import csCognates from "./catalog/cs-cognates.json";
+import bulletin from "./catalog/bulletin.json";
+import aiPrereqs from "./catalog/prereqs-ai.json";
 import overrides from "./catalog/overrides.json";
 import { DOC_COURSES } from "./directory.generated";
 
@@ -8,7 +8,8 @@ import { DOC_COURSES } from "./directory.generated";
 //   1. hand-entered rows below (Core, Econ, Math, Stats that haven't been scraped yet)
 //   2. the Directory of Classes in data/directory.generated.ts (npm run import:doc): every course offered
 //      this year, which semesters, and Barnard. Adds courses; never replaces titles or prereqs.
-//   3. scraped bulletin files in data/catalog/*.json (run scripts/scrape_bulletin.py)
+//   3. the bulletin in data/catalog/bulletin.json (python scripts/scrape_bulletin.py), with prerequisites the
+//      parser couldn't read filled in by Gemini from data/catalog/prereqs-ai.json (python scripts/ai_prereqs.py)
 //   4. hand fixes in data/catalog/overrides.json (survive re-scraping)
 //
 // Hand-entered rows are STARTER DATA: check them against bulletin.columbia.edu.
@@ -134,13 +135,36 @@ const HAND: Course[] = rows.map(([code, title, points, prereqs, tags]) => ({
   title,
   points,
   ...parseCode(code),
-  ...(prereqs ? { prereqs } : {}),
+  ...(prereqs ? { prereqs, prereqSource: "hand" as const } : {}),
   ...(tags ? { tags } : {}),
   origin: "hand",
 }));
 
-type Scraped = Omit<Course, "origin"> & { reviewReason?: string; source?: string };
-const SCRAPED = [...(comsCatalog as Scraped[]), ...(csCognates as Scraped[])];
+export type Scraped = Omit<Course, "origin"> & { reviewReason?: string; source?: string };
+
+interface AiPrereq {
+  prereqs: string[][];
+  coreqs: string[][];
+  conditions: string[];
+  confidence: "high" | "medium" | "low";
+}
+
+/** Prereqs the parser flagged get Gemini's reading instead, marked as unchecked. Clean parses are left alone. */
+export function withAiPrereqs(scraped: Scraped[], ai: Record<string, AiPrereq>): Scraped[] {
+  return scraped.map((s) => {
+    const a = ai[s.code];
+    if (!s.needsReview || !a) return { ...s, prereqSource: s.prereqs?.length ? "bulletin" : s.prereqSource };
+    return {
+      ...s,
+      prereqs: a.prereqs,
+      coreqs: a.coreqs.length ? a.coreqs : s.coreqs,
+      conditions: a.conditions.length ? a.conditions : undefined,
+      prereqSource: "ai",
+    };
+  });
+}
+
+const SCRAPED = withAiPrereqs(bulletin as Scraped[], (aiPrereqs as { courses: Record<string, AiPrereq> }).courses);
 const OVERRIDES = (overrides as { courses: Record<string, Partial<Course>> }).courses;
 
 // Sources sometimes write the same course with a different letter prefix (CSOR E4231 in the hand rows,
@@ -198,7 +222,10 @@ export function buildCatalog(base: Course[], scraped: Scraped[], fixes: Record<s
       prereqText: s.prereqText || undefined,
       coreqText: s.coreqText || undefined,
       // Bulletin prereqs win; fall back to hand ones if the scraper found none.
-      prereqs: s.prereqs?.length ? s.prereqs : prev?.prereqs,
+      prereqs: s.prereqs?.length || s.prereqSource === "ai" ? s.prereqs : prev?.prereqs,
+      prereqSource: s.prereqs?.length || s.prereqSource === "ai" ? s.prereqSource : prev?.prereqs ? "hand" : undefined,
+      coreqs: s.coreqs?.length ? s.coreqs : undefined,
+      conditions: s.conditions?.length ? s.conditions : undefined,
       tags: [...new Set([...(prev?.tags ?? []), ...(s.tags ?? [])])],
       needsReview: s.needsReview || undefined,
       // When it runs comes from the Directory; the bulletin doesn't say.
@@ -209,14 +236,18 @@ export function buildCatalog(base: Course[], scraped: Scraped[], fixes: Record<s
   }
   for (const [code, fix] of Object.entries(fixes)) {
     const prev = byCode.get(code);
-    byCode.set(code, { ...(prev ?? { code, title: code, points: 3, ...parseCode(code) }), ...fix, code });
+    const checked = fix.prereqs || fix.reviewed ? { prereqSource: "checked" as const, needsReview: undefined } : {};
+    byCode.set(code, { ...(prev ?? { code, title: code, points: 3, ...parseCode(code) }), ...checked, ...fix, code });
   }
   // Keep only prereq codes we actually know, so checks never point at a missing course.
   const known = new Set(byCode.keys());
+  const keepKnown = (groups?: string[][]) => {
+    const kept = groups?.map((g) => g.filter((p) => known.has(p))).filter((g) => g.length);
+    return kept?.length ? kept : undefined;
+  };
   return [...byCode.values()].map((c) => {
-    if (!c.prereqs) return c;
-    const prereqs = c.prereqs.map((g) => g.filter((p) => known.has(p))).filter((g) => g.length);
-    return { ...c, prereqs: prereqs.length ? prereqs : undefined };
+    if (!c.prereqs && !c.coreqs) return c;
+    return { ...c, prereqs: keepKnown(c.prereqs), coreqs: keepKnown(c.coreqs) };
   });
 }
 

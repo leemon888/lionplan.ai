@@ -4,6 +4,7 @@
 import { COURSE_BY_CODE, parseCode } from "@/data/courses";
 import { PROGRAM_BY_ID } from "@/data/programs";
 import type {
+  Course,
   CourseFilter,
   Plan,
   PlanReport,
@@ -209,7 +210,7 @@ export function evaluateProgram(program: Program, plan: Plan, now = new Date()):
 
 // ---------- plan-level checks ----------
 
-export function checkWarnings(plan: Plan): Warning[] {
+export function checkWarnings(plan: Plan, catalog: Record<string, Course> = COURSE_BY_CODE): Warning[] {
   const warnings: Warning[] = [];
   const seenAt = new Map<string, string>();
   const takenBefore = new Set<string>();
@@ -219,7 +220,7 @@ export function checkWarnings(plan: Plan): Warning[] {
     let pts = 0;
     for (const code of term.courses) {
       pts += pointsOf(code);
-      const course = COURSE_BY_CODE[code];
+      const course = catalog[code];
       if (seenAt.has(code)) {
         warnings.push({ kind: "duplicate", termId: term.id, code, message: `${code} is also in ${seenAt.get(code)}.` });
       } else {
@@ -230,13 +231,25 @@ export function checkWarnings(plan: Plan): Warning[] {
         continue;
       }
       if (term.id === "PRE") continue;
+      const unchecked = course.prereqSource === "ai" ? " (read from the bulletin by AI, not checked yet)" : "";
       for (const group of course.prereqs ?? []) {
         if (!group.some((p) => takenBefore.has(p))) {
           warnings.push({
             kind: "prereq",
             termId: term.id,
             code,
-            message: `${code} needs ${group.join(" or ")} in an earlier semester.`,
+            message: `${code} needs ${group.join(" or ")} in an earlier semester${unchecked}.`,
+          });
+        }
+      }
+      // Corequisites can be taken in the same semester.
+      for (const group of course.coreqs ?? []) {
+        if (!group.some((p) => takenBefore.has(p) || term.courses.includes(p))) {
+          warnings.push({
+            kind: "coreq",
+            termId: term.id,
+            code,
+            message: `${code} needs ${group.join(" or ")} in the same or an earlier semester${unchecked}.`,
           });
         }
       }

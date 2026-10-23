@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { addDirectory, buildCatalog } from "@/data/courses";
+import { addDirectory, buildCatalog, withAiPrereqs } from "@/data/courses";
+import { checkWarnings } from "./engine";
+import { emptyPlan } from "./plan-ops";
 import type { Course } from "./types";
 
 const hand: Course[] = [
@@ -91,5 +93,57 @@ describe("directory layer", () => {
     const cat = buildCatalog(addDirectory([], [["COMS E4999", "Topics", 3, "S"]]), [{ code: "COMS W4999", title: "Special Topics", points: 3, dept: "COMS", level: 4000 }], {});
     expect(cat.map((c) => c.code)).toEqual(["COMS W4999"]);
     expect(cat[0]).toMatchObject({ title: "Special Topics", offered: "S" });
+  });
+});
+
+describe("AI prerequisites", () => {
+  const scrapedRows = [
+    { code: "COMS W4118", title: "Operating Systems I", points: 3, dept: "COMS", level: 4000, prereqText: "(CSEE W3827) and knowledge of C, or the instructor's permission", prereqs: [["CSEE W3827"]], needsReview: true },
+    { code: "COMS W3157", title: "Advanced Programming", points: 4, dept: "COMS", level: 3000, prereqs: [["COMS W3134"]], needsReview: false },
+  ];
+  const ai = {
+    "COMS W4118": { prereqs: [["CSEE W3827"], ["COMS W3157"]], coreqs: [], conditions: ["instructor's permission"], confidence: "medium" as const },
+    "COMS W3157": { prereqs: [["NOPE"]], coreqs: [], conditions: [], confidence: "low" as const },
+  };
+  const merged = Object.fromEntries(withAiPrereqs(scrapedRows, ai).map((c) => [c.code, c]));
+
+  it("fills in flagged courses and marks them as AI-read", () => {
+    expect(merged["COMS W4118"]).toMatchObject({ prereqs: [["CSEE W3827"], ["COMS W3157"]], conditions: ["instructor's permission"], prereqSource: "ai" });
+  });
+
+  it("leaves cleanly parsed courses alone", () => {
+    expect(merged["COMS W3157"]).toMatchObject({ prereqs: [["COMS W3134"]], prereqSource: "bulletin" });
+  });
+
+  it("lets a checked override replace AI rules", () => {
+    const base: Course[] = ["CSEE W3827", "COMS W3157", "COMS W3134", "COMS W4118"].map((code) => ({ code, title: code, points: 3, dept: "COMS", level: 3000 }));
+    const cat = Object.fromEntries(
+      buildCatalog(base, withAiPrereqs(scrapedRows, ai), { "COMS W4118": { prereqs: [["CSEE W3827"]], reviewed: true } }).map((c) => [c.code, c]),
+    );
+    expect(cat["COMS W4118"]).toMatchObject({ prereqs: [["CSEE W3827"]], prereqSource: "checked" });
+    expect(cat["COMS W4118"].needsReview).toBeFalsy();
+  });
+});
+
+describe("corequisites and AI labels in warnings", () => {
+  const catalog: Record<string, Course> = {
+    "COMS W3203": { code: "COMS W3203", title: "Discrete", points: 4, dept: "COMS", level: 3000 },
+    "COMS W3134": { code: "COMS W3134", title: "DS", points: 3, dept: "COMS", level: 3000 },
+    "COMS W3261": { code: "COMS W3261", title: "Theory", points: 3, dept: "COMS", level: 3000, prereqs: [["COMS W3203"]], coreqs: [["COMS W3134"]], prereqSource: "ai" },
+  };
+  const plan = (terms: Record<string, string[]>) => {
+    const p = emptyPlan({ school: "CC", classYear: 2029, majors: [] });
+    return { ...p, terms: p.terms.map((t) => ({ ...t, courses: terms[t.id] ?? [] })) };
+  };
+
+  it("accepts a corequisite in the same semester", () => {
+    const w = checkWarnings(plan({ F2025: ["COMS W3203"], S2026: ["COMS W3261", "COMS W3134"] }), catalog);
+    expect(w).toEqual([]);
+  });
+
+  it("flags a missing corequisite and says when rules are AI-read", () => {
+    const w = checkWarnings(plan({ S2026: ["COMS W3261"] }), catalog);
+    expect(w.map((x) => x.kind).sort()).toEqual(["coreq", "prereq"]);
+    expect(w.every((x) => x.message.includes("not checked yet"))).toBe(true);
   });
 });
