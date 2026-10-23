@@ -26,6 +26,7 @@ export function ChatPanel() {
   const { messages, sendMessage, status, error, stop } = useLionChat();
   const mode = usePlanStore((s) => s.chatMode);
   const setMode = usePlanStore((s) => s.setChatMode);
+  const lastOpenMode = usePlanStore((s) => s.lastOpenMode);
   const undo = usePlanStore((s) => s.undo);
   const canUndo = usePlanStore((s) => s.history.length > 0);
   const [input, setInput] = useState("");
@@ -37,13 +38,16 @@ export function ChatPanel() {
   }, [messages, status, mode]);
 
   if (mode === "closed") {
+    const unread = messages.length > 0;
     return (
       <button
-        onClick={() => setMode("corner")}
+        onClick={() => setMode(lastOpenMode)}
+        aria-label={unread ? "Open the assistant and continue the conversation" : "Ask Lionplan"}
         className="absolute right-4 bottom-4 z-20 inline-flex min-h-12 items-center gap-2.5 rounded-full bg-button pr-5 pl-4 text-[15px] font-medium text-on-button shadow-float hover:opacity-90 md:right-6 md:bottom-6"
       >
         <SparkIcon />
-        Ask Lionplan
+        {busy ? "Thinking…" : unread ? "Continue chat" : "Ask Lionplan"}
+        {(busy || unread) && <span aria-hidden="true" className={`size-2 rounded-full bg-accent ${busy ? "animate-pulse" : ""}`} />}
       </button>
     );
   }
@@ -67,7 +71,13 @@ export function ChatPanel() {
   );
 
   return (
-    <section aria-label="Lionplan assistant" className={`absolute z-20 flex flex-col bg-raised ${PANEL[mode]}`}>
+    <section
+      aria-label="Lionplan assistant"
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && !e.defaultPrevented) setMode("closed");
+      }}
+      className={`absolute z-20 flex flex-col bg-raised ${PANEL[mode]}`}
+    >
       <div className="flex items-center justify-between gap-2 border-b border-line-soft py-2.5 pr-2.5 pl-4">
         <div className="flex items-center gap-2 text-[15px] font-semibold">
           <SparkIcon className="text-accent" />
@@ -102,9 +112,14 @@ export function ChatPanel() {
               <path d="M3 7V3h4M15 7V3h-4M3 11v4h4M15 11v4h-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>,
           )}
-          <button onClick={() => setMode("closed")} aria-label="Close assistant" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-hover hover:text-ink">
+          <button
+            onClick={() => setMode("closed")}
+            aria-label="Minimize assistant"
+            title="Minimize (Esc). Your conversation is kept."
+            className="grid size-9 place-items-center rounded-lg text-muted hover:bg-hover hover:text-ink"
+          >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <path d="M5 5l8 8M13 5l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M4.5 9h9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </button>
         </div>
