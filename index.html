@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Open block</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <h1>Open block</h1>
+    <p class="note">Demo with sample courses and made-up workload ratings. Not real listings.</p>
+  </div>
+
+  <div class="search">
+    <input id="q" type="text" autocomplete="off" spellcheck="false"
+      aria-label="Describe the class you want"
+      placeholder="Try “light CS elective” or “something about cities, no Fridays”">
+    <div class="examples">
+      <span>Examples:</span>
+      <button class="ex">light CS elective</button>
+      <button class="ex">something about cities, no Fridays</button>
+      <button class="ex">weird nontech, no mornings</button>
+      <button class="ex">music or games, evenings</button>
+    </div>
+    <div class="chips" id="chips" aria-live="polite"></div>
+  </div>
+
+  <div class="main">
+    <div class="calwrap">
+      <div class="cal">
+        <div class="cal-head" id="calhead"></div>
+        <div class="cal-body" id="calbody"></div>
+      </div>
+      <p class="calnote">Click an empty spot on the calendar to see what fits in that gap. Hover a course to preview it.</p>
+    </div>
+
+    <div>
+      <div class="buckets" id="buckets"></div>
+      <div class="count" id="count"></div>
+      <div class="list" id="list"></div>
+    </div>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <h2 id="dlgtitle">Email to instructor</h2>
+  <textarea id="dlgtext"></textarea>
+  <div class="actions">
+    <button class="btn" id="dlgclose">Close</button>
+    <button class="btn primary" id="dlgcopy">Copy email</button>
+  </div>
+</dialog>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="agent.js"></script>
+</body>
+</html>
