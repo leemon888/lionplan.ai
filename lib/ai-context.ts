@@ -20,6 +20,7 @@ export function buildInstructions(plan: Plan | null, now = new Date()): string {
     "- Recommend courses that fill missing requirements first, respect prerequisites, and keep semesters at or under 18 points, unless the student says otherwise.",
     "- To recommend courses, call show_courses (2 to 4 courses, one short reason each) and write at most one sentence around it. The student adds them from the cards.",
     "- Meeting times in this app are the last ones Columbia published (Fall 2024 / Spring 2025), or placeholders. Say times may have changed and to check Vergil. Don't promise sections.",
+    "- Prerequisite rules marked as read by AI haven't been checked by a person. Mention that when they decide whether a student can take a course. Conditions like instructor's permission are never checked by the app.",
     "- Prefer a short answer. Use bullet points only for lists of 3 or more courses.",
     "- Remind students to confirm major decisions with their advisor when it matters, but don't repeat it every message.",
     `- Supported majors (ids): ${MAJORS.map((m) => `${m.name} (${m.id})`).join(", ")}. Data for other majors isn't available yet; say so if asked.`,

@@ -41,7 +41,13 @@ export function CourseCard({ code: raw, reason, termId }: { code: string; reason
       </div>
       <h4 className="mt-0.5 text-sm font-medium underline decoration-line underline-offset-[3px]">{course.title}</h4>
       {reason && <p className="mt-1.5 text-[13px] leading-relaxed text-ink-2">{reason}</p>}
-      {course.prereqText && <p className="mt-1.5 text-xs leading-snug text-muted">Prereqs: {course.prereqText}</p>}
+      {course.prereqText && (
+        <p className="mt-1.5 text-xs leading-snug text-muted">
+          Prereqs: {course.prereqText}
+          {course.prereqSource === "ai" && <span className="text-warn-ink"> (rules read by AI, not checked yet)</span>}
+        </p>
+      )}
+      {course.conditions?.length ? <p className="mt-1 text-xs leading-snug text-muted">Also: {course.conditions.join(", ")}</p> : null}
       {req && <span className={`mt-2.5 inline-block rounded-md px-2 py-0.5 text-xs ${toneFor(course.code)} bg-tone-bg text-tone-ink`}>Counts toward {req}</span>}
 
       {!where && (

@@ -8,7 +8,8 @@ import {
   type UIMessage,
 } from "ai";
 import { z } from "zod";
-import { COURSE_BY_CODE } from "@/data/courses";
+import details from "@/data/catalog/bulletin-details.json";
+import { COURSE_BY_CODE, resolveCode } from "@/data/courses";
 import { buildInstructions } from "@/lib/ai-context";
 import { searchCourses } from "@/lib/search";
 import { clientTools } from "@/lib/tools";
@@ -57,7 +58,13 @@ export async function POST(req: Request) {
       get_course: {
         description: "Get full details for one course code.",
         inputSchema: z.object({ code: z.string() }),
-        execute: async ({ code }: { code: string }) => COURSE_BY_CODE[code.toUpperCase()] ?? { error: `${code} not found` },
+        execute: async ({ code }: { code: string }) => {
+          const c = COURSE_BY_CODE[resolveCode(code) ?? code.toUpperCase()];
+          if (!c) return { error: `${code} not found` };
+          // Descriptions live in a server-only file so they don't weigh down the app.
+          const extra = (details as Record<string, { description?: string }>)[c.code];
+          return { ...c, description: extra?.description ?? c.description };
+        },
       },
     },
   });

@@ -13,6 +13,12 @@ export interface Course {
   description?: string;
   /** Prerequisites in AND-of-ORs form: every group must have one course done earlier. */
   prereqs?: string[][];
+  /** Corequisites, same form: each group needs one course in the same semester or earlier. */
+  coreqs?: string[][];
+  /** Requirements that aren't courses, e.g. "instructor's permission", "junior standing". Shown, never enforced. */
+  conditions?: string[];
+  /** Where the prereq rules came from. "ai" means Gemini read them from the bulletin text and no one has checked yet. */
+  prereqSource?: "hand" | "bulletin" | "ai" | "checked";
   /** Free-form tags, e.g. "core", "seminar". */
   tags?: string[];
   /** Prerequisite and corequisite text as written in the bulletin. */
@@ -133,7 +139,7 @@ export interface ProgramResult {
 }
 
 export interface Warning {
-  kind: "prereq" | "overload" | "duplicate" | "unknown";
+  kind: "prereq" | "coreq" | "overload" | "duplicate" | "unknown";
   termId: string;
   code?: string;
   message: string;

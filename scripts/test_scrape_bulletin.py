@@ -6,7 +6,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from scrape_bulletin import parse_page, parse_prereqs, smart_title  # noqa: E402
+import json  # noqa: E402
+import tempfile  # noqa: E402
+
+import scrape_bulletin  # noqa: E402
+from scrape_bulletin import discover_links, keep_relevant, parse_page, parse_prereqs, smart_title, write_outputs  # noqa: E402
 
 # Shaped like the bulletin's CourseLeaf markup.
 PAGE = """
@@ -109,6 +113,68 @@ class ParsePrereqs(unittest.TestCase):
     def test_empty(self):
         self.assertEqual(parse_prereqs(""), ([], ""))
         self.assertEqual(parse_prereqs("Instructor's permission")[0], [])
+
+
+class Coreqs(unittest.TestCase):
+    def test_coreq_comma_list_means_any_one(self):
+        c = {c["code"]: c for c in parse_page(PAGE, "x")}["COMS W3261"]
+        self.assertEqual(c["coreqs"], [["COMS W3134", "COMS W3136", "COMS W3137"]])
+
+    def test_prereq_comma_list_is_flagged(self):
+        groups, why = parse_prereqs("COMS W3134, COMS W3157")
+        self.assertEqual(groups, [["COMS W3134"], ["COMS W3157"]])
+        self.assertIn("comma list", why)
+
+
+INDEX = """
+<a href="/columbia-college/departments-instruction/computer-science/">CS</a>
+<a href="/columbia-college/departments-instruction/computer-science/#coursestext">CS courses</a>
+<a href="/columbia-college/departments-instruction/computer-science/courses/">deeper</a>
+<a href="/columbia-college/departments-instruction/computer-science/a/b/c/">too deep</a>
+<a href="/columbia-college/departments-instruction/search/">search</a>
+<a href="/columbia-college/departments-instruction/x.pdf">pdf</a>
+<a href="https://example.com/columbia-college/departments-instruction/evil/">offsite</a>
+<a href="/general-studies/whatever/">other school</a>
+<a href="economics/">relative</a>
+"""
+
+
+class Crawl(unittest.TestCase):
+    def test_discover_links(self):
+        index = "/columbia-college/departments-instruction/"
+        links = discover_links(INDEX, index, index, 2)
+        self.assertEqual(links, [
+            "/columbia-college/departments-instruction/computer-science/",
+            "/columbia-college/departments-instruction/computer-science/courses/",
+            "/columbia-college/departments-instruction/economics/",
+        ])
+
+    def test_keep_relevant_follows_prereqs_down(self):
+        def course(code, prereqs=()):
+            return {"code": code, "prereqs": [list(p) for p in prereqs], "coreqs": []}
+        found = {
+            "COMS W4118": course("COMS W4118", [["COMS W3157"]]),
+            "COMS W3157": course("COMS W3157", [["COMS W3134"]]),
+            "COMS W3134": course("COMS W3134"),
+            "COMS W4999": course("COMS W4999"),
+            "CSOR W4231": course("CSOR W4231"),
+        }
+        kept = [c["code"] for c in keep_relevant(found, {"COMS W4118", "CSOR E4231"})]
+        self.assertEqual(kept, ["COMS W3134", "COMS W3157", "COMS W4118", "CSOR W4231"])
+
+    def test_write_outputs_keeps_descriptions_out_of_the_browser_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            old = scrape_bulletin.OUT_DIR
+            scrape_bulletin.OUT_DIR = scrape_bulletin.Path(d)
+            try:
+                write_outputs(parse_page(PAGE, "https://example/cs"))
+                compact = json.loads((scrape_bulletin.Path(d) / "bulletin.json").read_text())
+                details = json.loads((scrape_bulletin.Path(d) / "bulletin-details.json").read_text())
+            finally:
+                scrape_bulletin.OUT_DIR = old
+        self.assertNotIn("description", compact[0])
+        self.assertIn("Unix systems programming", details["COMS W3157"]["description"])
+        self.assertEqual(next(c for c in compact if c["code"] == "COMS W3157")["prereqs"], [["COMS W3134", "COMS W3137"]])
 
 
 class Titles(unittest.TestCase):

@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
 """
-Scrape course listings from the Columbia Bulletin into data/catalog/*.json.
+Scrape course listings for every department in the Columbia Bulletin.
 
 Usage (from the repo root):
     pip install -r scripts/requirements.txt
-    python scripts/scrape_bulletin.py            # scrape everything in SOURCES
-    python scripts/scrape_bulletin.py --offline  # re-parse cached pages, no network
+    python scripts/scrape_bulletin.py               # crawl every department
+    python scripts/scrape_bulletin.py --offline     # re-parse cached pages, no network
+    python scripts/scrape_bulletin.py --only computer-science   # one department, for testing
 
-Each output file is a JSON list of courses:
-    {code, title, points, dept, level, description, prereqText, coreqText,
-     prereqs: [["COMS W3134", "COMS W3137"], ...],   # AND of OR-groups
-     tags, needsReview, reviewReason, source}
+It starts from the bulletin's department index pages and follows links into each department,
+so new departments are picked up automatically. It keeps courses offered this year (from
+data/directory.generated.ts) plus every course those list as a prerequisite, and writes:
+
+  data/catalog/bulletin.json          what the app needs in the browser:
+      {code, title, points, dept, level, prereqText, coreqText,
+       prereqs: [["COMS W3134", "COMS W3137"], ...],   # AND of OR-groups
+       coreqs, tags, needsReview, reviewReason}
+  data/catalog/bulletin-details.json  descriptions and sources, used on the server only
 
 `needsReview` marks prerequisites the parser couldn't turn into clean rules
-("instructor's permission", "or equivalent", ...). Check those by hand.
+("instructor's permission", "or equivalent", ...). Run scripts/ai_prereqs.py next to have
+Gemini propose rules for those, then check the ones that matter.
 Pages are cached in scripts/.cache so you can re-run parsing without re-downloading.
 """
 
@@ -33,38 +40,15 @@ CACHE_DIR = Path(__file__).resolve().parent / ".cache"
 BASE = "https://bulletin.columbia.edu"
 HEADERS = {"User-Agent": "Lionplan course planner (student project; contact cl4371@columbia.edu)"}
 
-# Which pages to read, and which courses to keep from each.
-#   subjects: keep every course whose subject code is in this set
-#   codes:    keep only these exact course codes (for cognates from other departments)
-SOURCES: dict[str, list[dict]] = {
-    # Everything on the CS page: COMS plus joint courses (CSEE, CSOR, CBMF, ECBM, EECS...).
-    "coms": [
-        {
-            "url": f"{BASE}/columbia-college/departments-instruction/computer-science/",
-            "subjects": {"COMS", "CSEE", "CSOR", "CBMF", "ECBM", "EECS", "CSPH", "CSEN"},
-        },
-    ],
-    # Courses from other departments that the CS major requires or accepts.
-    "cs-cognates": [
-        {
-            "url": f"{BASE}/columbia-college/departments-instruction/mathematics/",
-            "codes": {"MATH UN1101", "MATH UN1102", "MATH UN1201", "MATH UN1202", "MATH UN1205",
-                      "MATH UN1207", "MATH UN1208", "MATH UN2010", "MATH UN2015", "MATH UN2020"},
-        },
-        {
-            "url": f"{BASE}/columbia-college/departments-instruction/statistics/",
-            "codes": {"STAT UN1201", "STAT GU4001"},
-        },
-        {
-            "url": f"{BASE}/columbia-engineering/academic-departments-programs/applied-physics-applied-mathematics/",
-            "codes": {"APMA E2000", "APMA E2101", "APMA E3101"},
-        },
-        {
-            "url": f"{BASE}/columbia-engineering/academic-departments-programs/industrial-engineering-operations-research/",
-            "codes": {"IEOR E3658"},
-        },
-    ],
-}
+# Where the crawl starts, and how many path levels below each index it may follow.
+# Engineering departments keep courses one level deeper (e.g. .../computer-science/courses/).
+INDEXES: list[tuple[str, int]] = [
+    ("/columbia-college/departments-instruction/", 2),
+    ("/columbia-engineering/academic-departments-programs/", 2),
+    ("/columbia-college/core-curriculum/", 1),
+]
+MAX_PAGES = 600
+SKIP_PATH = re.compile(r"/(search|archive|pdf)/|\.(pdf|jpg|png)$|#", re.I)
 
 CODE_RE = re.compile(r"\b([A-Z]{4})\s+([A-Z]{1,2}\d{4}|\d{4})\b")
 BARE_NUM_RE = re.compile(r"\b([A-Z]{1,2}\d{4})\b")
@@ -178,6 +162,7 @@ def parse_page(html: str, source_url: str) -> list[dict]:
             coreq_text = coreq_text or clauses.get("co", "")
         description = re.sub(r"\s+", " ", " ".join(desc_parts)).strip()[:1200]
         prereqs, review_reason = parse_prereqs(prereq_text)
+        coreqs, _ = parse_prereqs(coreq_text, comma_means="or")
 
         tags = []
         if re.search(r"Science Requirement", body, re.I):
@@ -197,6 +182,7 @@ def parse_page(html: str, source_url: str) -> list[dict]:
             "prereqText": prereq_text,
             "coreqText": coreq_text,
             "prereqs": prereqs,
+            "coreqs": coreqs,
             "tags": tags,
             "needsReview": bool(review_reason),
             "reviewReason": review_reason,
@@ -277,10 +263,12 @@ def to_cnf(node) -> list[frozenset]:
     return clauses
 
 
-def parse_prereqs(text: str) -> tuple[list[list[str]], str]:
+def parse_prereqs(text: str, comma_means: str = "and") -> tuple[list[list[str]], str]:
     """
     Returns (groups, review_reason). groups is AND-of-OR: [["A","B"],["C"]] = (A or B) and C.
     review_reason is "" when the text was fully understood.
+    comma_means: how to read a bare comma list with no "and"/"or" ("A, B, C"). Prerequisite lists are
+    ambiguous, so those get flagged; corequisite lists in the bulletin mean "any one of" (comma_means="or").
     """
     if not text:
         return [], ""
@@ -320,7 +308,12 @@ def parse_prereqs(text: str) -> tuple[list[list[str]], str]:
             explicit = real_ops - {","}
             if len(explicit) > 1:
                 reasons.append("mixes and/or without parentheses")
-            kind = "or" if explicit == {"OR"} else "and"
+            if not explicit:
+                kind = comma_means
+                if comma_means == "and":
+                    reasons.append("comma list without and/or")
+            else:
+                kind = "or" if explicit == {"OR"} else "and"
             return (kind, items)
         if len(real_ops) > 1:
             reasons.append("mixes and/or without parentheses")
@@ -380,40 +373,135 @@ def parse_prereqs(text: str) -> tuple[list[list[str]], str]:
 # Main
 # ---------------------------------------------------------------------------
 
-def scrape(name: str, sources: list[dict], offline: bool) -> list[dict]:
+def discover_links(html: str, page_path: str, index: str, max_depth: int) -> list[str]:
+    """Bulletin paths under `index`, at most `max_depth` levels below it."""
+    from bs4 import BeautifulSoup
+    from urllib.parse import urljoin, urlparse
+
+    out = []
+    for a in BeautifulSoup(html, "html.parser").select("a[href]"):
+        url = urlparse(urljoin(BASE + page_path, a["href"]))
+        if url.netloc and url.netloc != urlparse(BASE).netloc:
+            continue
+        if SKIP_PATH.search(url.path):
+            continue
+        path = url.path if url.path.endswith("/") else url.path + "/"
+        if not path.startswith(index) or path == index:
+            continue
+        depth = len([p for p in path[len(index):].split("/") if p])
+        if depth <= max_depth and path not in out:
+            out.append(path)
+    return out
+
+
+def crawl(offline: bool, only: str | None = None) -> dict[str, dict]:
+    """Every course on every department page, keyed by code. First page that lists a course wins,
+    except that a fuller entry (with prerequisites or a description) replaces a bare one."""
     found: dict[str, dict] = {}
-    for src in sources:
-        html = fetch(src["url"], offline)
-        for c in parse_page(html, src["url"]):
-            keep = c["code"] in src["codes"] if "codes" in src else c["dept"] in src["subjects"]
-            if keep and c["code"] not in found:
+    seen: set[str] = set()
+    queue: list[tuple[str, str, int]] = [(index, index, depth) for index, depth in INDEXES]
+    pages = 0
+    while queue and pages < MAX_PAGES:
+        path, index, max_depth = queue.pop(0)
+        if path in seen:
+            continue
+        seen.add(path)
+        if only and path != index and only not in path:
+            continue
+        try:
+            html = fetch(BASE + path, offline)
+        except Exception as e:  # keep going: one broken page shouldn't stop the crawl
+            print(f"  ! skipped {path}: {e}")
+            continue
+        pages += 1
+        courses = parse_page(html, BASE + path)
+        for c in courses:
+            prev = found.get(c["code"])
+            fuller = prev is not None and not prev["prereqText"] and not prev["description"] and (c["prereqText"] or c["description"])
+            if prev is None or fuller:
                 found[c["code"]] = c
-        if "codes" in src:
-            missing = sorted(set(src["codes"]) - set(found))
-            if missing:
-                print(f"  ! not found on {src['url']}: {', '.join(missing)}")
-    return sorted(found.values(), key=lambda c: (c["dept"], c["code"]))
+        if courses:
+            print(f"  {len(courses):4d} courses  {path}")
+        for link in discover_links(html, path, index, max_depth):
+            if link not in seen:
+                queue.append((link, index, max_depth))
+    print(f"  read {pages} pages")
+    return found
+
+
+DIRECTORY = ROOT / "data" / "directory.generated.ts"
+
+
+def number_key(code: str) -> str:
+    """'CSOR E4231' -> 'CSOR 4231': the same course is sometimes written with a different prefix letter."""
+    return re.sub(r" [A-Z]*(?=\d)", " ", code)
+
+
+def offered_codes() -> set[str]:
+    """Course codes offered this year, read from the Directory of Classes import."""
+    if not DIRECTORY.exists():
+        return set()
+    text = DIRECTORY.read_text(encoding="utf-8")
+    return set(re.findall(r'\["([A-Z]{4} [A-Z]{0,2}\d{4})"', text))
+
+
+def keep_relevant(found: dict[str, dict], offered: set[str]) -> list[dict]:
+    """Courses offered this year, plus every course they need as a prerequisite or corequisite (followed all the way down)."""
+    if not offered:
+        return sorted(found.values(), key=lambda c: c["code"])
+    offered_keys = {number_key(c) for c in offered}
+    by_key: dict[str, list[str]] = {}
+    for code in found:
+        by_key.setdefault(number_key(code), []).append(code)
+    keep = {code for code in found if code in offered or number_key(code) in offered_keys}
+    frontier = list(keep)
+    while frontier:
+        code = frontier.pop()
+        c = found[code]
+        for group in c["prereqs"] + c.get("coreqs", []):
+            for p in group:
+                for match in (by_key.get(number_key(p), []) if p not in found else [p]):
+                    if match not in keep:
+                        keep.add(match)
+                        frontier.append(match)
+    return sorted((found[c] for c in keep), key=lambda c: c["code"])
+
+
+BROWSER_FIELDS = ("code", "title", "points", "dept", "level", "prereqText", "coreqText", "prereqs", "coreqs", "tags", "needsReview", "reviewReason")
+
+
+def write_outputs(courses: list[dict]) -> None:
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    compact = []
+    for c in courses:
+        row = {k: c[k] for k in BROWSER_FIELDS if c.get(k) not in (None, "", [], False)}
+        if row.get("prereqText"):
+            row["prereqText"] = row["prereqText"][:300]
+        compact.append(row)
+    details = {c["code"]: {"description": c["description"], "source": c["source"]} for c in courses if c.get("description")}
+    (OUT_DIR / "bulletin.json").write_text(json.dumps(compact, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    (OUT_DIR / "bulletin-details.json").write_text(json.dumps(details, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--offline", action="store_true", help="only use cached pages")
-    ap.add_argument("--only", choices=sorted(SOURCES), help="scrape one output file")
+    ap.add_argument("--only", help="only crawl department pages whose path contains this, e.g. computer-science")
     args = ap.parse_args(argv)
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    for name, sources in SOURCES.items():
-        if args.only and name != args.only:
-            continue
-        print(f"{name}:")
-        courses = scrape(name, sources, args.offline)
-        if not courses:
-            print("  ! no courses parsed; the page layout may have changed. Nothing written.")
-            continue
-        path = OUT_DIR / f"{name}.json"
-        path.write_text(json.dumps(courses, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        review = sum(c["needsReview"] for c in courses)
-        print(f"  wrote {len(courses)} courses to {path.relative_to(ROOT)} ({review} need a prereq check)")
+    print("crawling the bulletin:")
+    found = crawl(args.offline, args.only)
+    if not found:
+        print("! no courses parsed; the page layout may have changed. Nothing written.")
+        return 1
+    offered = offered_codes()
+    courses = keep_relevant(found, offered)
+    write_outputs(courses)
+    review = sum(1 for c in courses if c["needsReview"])
+    with_prereqs = sum(1 for c in courses if c["prereqs"])
+    print(f"parsed {len(found)} courses; kept {len(courses)} (offered this year or needed as a prerequisite)")
+    print(f"  {with_prereqs} have prerequisite rules, {review} need a check (run scripts/ai_prereqs.py next)")
+    print(f"  wrote data/catalog/bulletin.json and bulletin-details.json")
     return 0
 
 

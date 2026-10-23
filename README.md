@@ -53,39 +53,42 @@ Why it's built this way:
 
 ## Course data: scraping the bulletin
 
-Course data comes from the Columbia Bulletin through `scripts/scrape_bulletin.py`. Right now it scrapes
-**Computer Science**: every course on the CS page (COMS plus joint CSEE, CSOR, CBMF... courses) and the math and
-statistics courses the CS major requires from other departments.
-
-Run it on your laptop (Python 3.10+). From the repo root:
+Course titles, prerequisites and corequisites come from the Columbia Bulletin. Two scripts, run on a laptop
+(Python 3.10+) from the repo root:
 
 ```bash
 pip install -r scripts/requirements.txt
-python scripts/scrape_bulletin.py          # writes data/catalog/coms.json and cs-cognates.json
-python -m unittest discover scripts        # scraper tests
-npm test                                   # app tests, including the catalog
+python scripts/scrape_bulletin.py     # crawls every department, writes data/catalog/bulletin.json
+python scripts/ai_prereqs.py          # Gemini reads the prerequisite text the parser flagged
+python -m unittest discover scripts   # scraper and AI-step tests
+npm test                              # app tests, including the catalog
 ```
+
+**`scrape_bulletin.py`** starts from the bulletin's department index pages (College, Engineering, Core) and follows
+links into each department, so new departments are picked up automatically. It keeps courses offered this year
+(from Alina's Directory import) plus everything they need as a prerequisite, and writes `bulletin.json` (what the
+browser needs) and `bulletin-details.json` (descriptions, used by the assistant on the server only).
+`--only computer-science` crawls one department for a quick test; `--offline` re-parses cached pages.
+
+**`ai_prereqs.py`** takes the courses the parser flagged (text like "or the instructor's permission" or "knowledge of
+C") and asks Gemini, 20 at a time, for rules in a fixed format. Every course code it returns is checked against the
+catalog and invented ones are dropped. Results go to `prereqs-ai.json` and show up in the app as "read by AI, not
+checked yet". Things that aren't courses (instructor's permission, junior standing) are shown as notes and never
+block anything. Answers are cached, so re-running only asks about new or changed text.
 
 How the catalog is built (`data/courses.ts`), later layers winning:
-1. hand-entered starter rows (Core, Econ, Math, Stats not scraped yet)
-2. the Directory of Classes (`data/directory.generated.ts`, `npm run import:doc`): every course offered this year,
-   which semesters, Barnard, and last published times. Fills in courses nobody has scraped yet, with short titles.
-3. scraped files in `data/catalog/*.json`, regenerated whenever you re-run the scraper
-4. hand fixes in `data/catalog/overrides.json`, which the scraper never touches
+1. hand-entered starter rows (Core, Econ, Math, Stats)
+2. the Directory of Classes (`npm run import:doc`): every course offered this year, which semesters
+3. the bulletin, with flagged prerequisites filled in from `prereqs-ai.json`
+4. `data/catalog/overrides.json`: checked fixes, which no script ever touches
 
-The same course can be written with different prefixes (`CSOR E4231` / `CSOR W4231`). Layers match on the exact
-code, then on subject + number when only one course has it (Barnard's `BIOL BC3320` and `BIOL UN3320` are different
-courses).
-
-Checking prerequisites: the scraper turns "Prerequisites: (COMS W3134) or (COMS W3137)" into rules. When the text says
-something it can't turn into rules ("or the instructor's permission", "knowledge of C"), the course gets
-`"needsReview": true` with a `reviewReason`. Look those up, then put the correct rule in `overrides.json`:
+To check a course, look it up in the bulletin and put the correct rule in `overrides.json`. It then shows as checked:
 
 ```json
-"COMS W4118": { "prereqs": [["CSEE W3827"], ["COMS W3136", "COMS W3157"]], "needsReview": false, "reviewed": true }
+"COMS W4118": { "prereqs": [["CSEE W3827"], ["COMS W3136", "COMS W3157"]], "conditions": ["instructor's permission"], "reviewed": true }
 ```
 
-To add a department, add an entry to `SOURCES` at the top of the scraper.
+Corequisites (`coreqs`) work like prerequisites but can be taken in the same semester.
 
 ## Data status (read before launch)
 
