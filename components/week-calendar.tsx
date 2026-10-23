@@ -159,13 +159,13 @@ export function WeekCalendar({
                   className={`group absolute box-border overflow-hidden rounded-lg border px-2 py-1.5 ${toneFor(b.code)} bg-tone-bg text-tone-ink ${planned ? "border-dashed" : ""} border-tone-line ${isFlash ? "anim-pop ring-2 ring-accent" : ""} ${clash ? "ring-2 ring-warn-ink" : ""}`}
                   style={{ top: b.top, height: b.height, left: `calc(${b.day * 20}% + 4px)`, width: "calc(20% - 8px)" }}
                 >
-                  <div className="text-xs font-semibold">{b.code}</div>
+                  <div className="pr-5 text-xs font-semibold">{b.code}</div>
                   <div className="truncate text-xs opacity-85">{c?.title}</div>
                   <div className="mt-0.5 text-[11px] opacity-75">{b.time}</div>
                   <button
                     onClick={() => onRemove(b.code)}
                     aria-label={`Remove ${b.code}`}
-                    className="absolute top-1 right-1 grid size-6 place-items-center rounded-md opacity-0 group-hover:opacity-100 hover:bg-bg/60 focus:opacity-100"
+                    className="absolute top-1 right-1 grid size-6 place-items-center rounded-md opacity-60 hover:bg-bg/60 hover:opacity-100 focus:opacity-100"
                   >
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                       <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
