@@ -37,7 +37,7 @@ export function buildInstructions(plan: Plan | null, now = new Date()): string {
     "",
     "## Student",
     `${p.name ? p.name + ", " : ""}${SCHOOL_LABEL[p.school] ?? p.school}, class of ${p.classYear}.`,
-    `Studying: ${p.studying || "not given"}. Tracked majors: ${p.majors.length ? p.majors.join(", ") : "none"}.`,
+    `Studying: ${p.studies?.length ? p.studies.map((s) => `${s.name} (${s.status} ${s.kind})`).join(", ") : p.studying || "not given"}. Requirement-tracked programs: ${p.majors.length ? p.majors.join(", ") : "none"}.`,
     `This semester is ${current?.id ?? "unknown"}; next semester is ${next?.id ?? "unknown"}.`,
     p.goals ? `Goals: ${p.goals}` : "Goals: not given yet.",
     p.constraints ? `Constraints: ${p.constraints}` : "",
