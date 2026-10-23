@@ -18,12 +18,25 @@ export const clientTools = {
     inputSchema: z.object({ code: z.string(), termId: z.string() }),
   },
   update_profile: {
-    description: "Update the student's profile: graduation year, majors (program ids), goals, or constraints like 'no 9am classes'.",
+    description: "Update the student's profile: name, graduation year, majors (program ids), what they study, goals, or constraints like 'no 9am classes'.",
     inputSchema: z.object({
+      name: z.string().optional(),
       classYear: z.number().int().optional(),
+      studying: z.string().optional(),
       majors: z.array(z.string()).optional(),
       goals: z.string().optional(),
       constraints: z.string().optional(),
+    }),
+  },
+  show_courses: {
+    description:
+      "Show course recommendations as cards the student can add, mark as already taken, or drag onto a semester. Use this whenever you suggest specific courses instead of describing them in text. Only codes from search_courses.",
+    inputSchema: z.object({
+      courses: z
+        .array(z.object({ code: z.string(), reason: z.string().describe("One short sentence: why this course, for this student") }))
+        .min(1)
+        .max(4),
+      termId: z.string().optional().describe("Term the Add button targets. Defaults to next semester."),
     }),
   },
   set_requirement_done: {

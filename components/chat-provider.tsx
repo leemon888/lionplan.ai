@@ -18,7 +18,7 @@ export function useLionChat() {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const runners: Record<ClientToolName, (input: any) => (plan: Plan) => OpResult> = {
+const runners: Partial<Record<ClientToolName, (input: any) => (plan: Plan) => OpResult>> = {
   add_course: ({ code, termId }) => (p) => addCourse(p, code, termId),
   remove_course: ({ code }) => (p) => removeCourse(p, code),
   move_course: ({ code, termId }) => (p) => moveCourse(p, code, termId),
@@ -37,10 +37,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     onToolCall({ toolCall }) {
       if (toolCall.dynamic) return;
+      if (toolCall.toolName === "show_courses") {
+        // Cards render from the tool input; the student acts on them directly.
+        chat.addToolOutput({ tool: "show_courses", toolCallId: toolCall.toolCallId, output: "Shown to the student as cards with Add and Already taken buttons." });
+        return;
+      }
       const run = runners[toolCall.toolName as ClientToolName];
       if (!run) return; // server-side tool
       const res = usePlanStore.getState().apply(run(toolCall.input));
       if (res?.ok) {
+        const code = (toolCall.input as { code?: string })?.code;
+        if (code && toolCall.toolName !== "remove_course") usePlanStore.getState().flashCourse(code.toUpperCase());
         chat.addToolOutput({ tool: toolCall.toolName, toolCallId: toolCall.toolCallId, output: res.message });
       } else {
         chat.addToolOutput({
@@ -57,7 +64,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!pending) return;
     usePlanStore.getState().setPendingMessage(null);
-    usePlanStore.getState().setChatOpen(true);
+    if (usePlanStore.getState().chatMode === "closed") usePlanStore.getState().setChatMode("corner");
     chat.sendMessage({ text: pending });
   }, [pending, chat]);
 

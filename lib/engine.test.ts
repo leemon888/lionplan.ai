@@ -113,6 +113,11 @@ describe("warnings", () => {
     expect(analyzePlan(good, NOW).warnings).toEqual([]);
   });
 
+  it("doesn't call earlier credit a heavy semester", () => {
+    const plan = build(2029, [], { PRE: ["ECON UN1105", "COMS W3157", "COMS W3203", "HUMA CC1001", "COCI CC1101"] });
+    expect(analyzePlan(plan, NOW).warnings.some((w) => w.kind === "overload")).toBe(false);
+  });
+
   it("flags heavy semesters", () => {
     const plan = build(2029, [], { F2026: ["ECON UN1105", "COMS W3157", "COMS W3203", "HUMA CC1001", "COCI CC1101"] });
     expect(analyzePlan(plan, NOW).warnings.some((w) => w.kind === "overload")).toBe(true);

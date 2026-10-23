@@ -48,8 +48,17 @@ export function termStatus(term: Term, now = new Date()): TermStatus {
   return k < nextFall ? "past" : "future";
 }
 
+/** The term in progress (or the upcoming fall in summer), and the one after it. */
+export function currentAndNext(plan: Plan, now = new Date()): { current?: Term; next?: Term } {
+  const sems = plan.terms.filter((t) => t.id !== "PRE");
+  let i = sems.findIndex((t) => termStatus(t, now) === "current");
+  if (i < 0) i = sems.findIndex((t) => termStatus(t, now) === "future");
+  if (i < 0) return {};
+  return { current: sems[i], next: sems[i + 1] };
+}
+
 export function makeTerms(classYear: number): Term[] {
-  const terms: Term[] = [{ id: "PRE", label: "AP / Transfer credit", courses: [] }];
+  const terms: Term[] = [{ id: "PRE", label: "Taken earlier / AP", courses: [] }];
   for (let i = 0; i < 4; i++) {
     const fall = classYear - 4 + i;
     terms.push({ id: `F${fall}`, season: "Fall", year: fall, label: `Fall ${fall}`, courses: [] });
@@ -232,7 +241,7 @@ export function checkWarnings(plan: Plan): Warning[] {
         }
       }
     }
-    if (pts > HEAVY_TERM_POINTS) {
+    if (term.id !== "PRE" && pts > HEAVY_TERM_POINTS) {
       warnings.push({ kind: "overload", termId: term.id, message: `${term.label} has ${pts} points (over ${HEAVY_TERM_POINTS}).` });
     }
     term.courses.forEach((c) => takenBefore.add(c));
@@ -241,7 +250,8 @@ export function checkWarnings(plan: Plan): Warning[] {
 }
 
 export function analyzePlan(plan: Plan, now = new Date()): PlanReport {
-  const programIds = ["cc-core", ...plan.profile.majors];
+  // Requirement data only exists for Columbia College so far.
+  const programIds = plan.profile.school === "CC" ? ["cc-core", ...plan.profile.majors] : [];
   const programs = programIds
     .map((id) => PROGRAM_BY_ID[id])
     .filter(Boolean)

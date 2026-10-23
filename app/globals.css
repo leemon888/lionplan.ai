@@ -1,72 +1,144 @@
 @import "tailwindcss";
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/newsreader";
+@import "@fontsource-variable/geist";
 
 /*
-  Lionplan design tokens
-  - paper: cool limestone (Morningside campus), not cream
-  - ink: Columbia navy for text and completed work
-  - sky: Columbia blue marks what's planned / in progress
-  - moss: requirement satisfied
-  - amber: warnings (prereqs, heavy terms)
+  Lionplan design tokens. Clean, light, Notion-like by default; a dark theme
+  mirrors every token. Components only ever use these names, never raw hex.
 */
-@theme {
-  --color-paper: #f3f5f2;
-  --color-surface: #ffffff;
-  --color-ink: #13294b;
-  --color-ink-soft: #4a5a72;
-  --color-ink-faint: #8a96a6;
-  --color-line: #d9ded8;
-  --color-sky: #9dc6e4;
-  --color-sky-tint: #e3eff8;
-  --color-moss: #2f6b4f;
-  --color-moss-tint: #e2efe7;
-  --color-amber: #a8661a;
-  --color-amber-tint: #fbeedc;
-
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Newsreader Variable", ui-serif, Georgia, serif;
-}
-
 :root {
   color-scheme: light;
+  --bg: #ffffff;
+  --side: #f7f8fa;
+  --raised: #ffffff;
+  --subtle: #f4f5f7;
+  --hover: #eef0f4;
+  --line: #e7e9ee;
+  --line-soft: #f0f1f4;
+  --ink: #15171c;
+  --ink-2: #3d434d;
+  --muted: #5e6470;
+  --placeholder: #8b919c;
+  --accent: #2e5bff;
+  --accent-tint: #eaf0ff;
+  --accent-ink: #1e40af;
+  --on-accent: #ffffff;
+  --button: #15171c;
+  --on-button: #ffffff;
+  --ok-tint: #e9f6ef;
+  --ok-ink: #17633e;
+  --warn-tint: #fff1e0;
+  --warn-ink: #9a4a06;
+  --shadow: 0 30px 70px -24px rgba(16, 24, 40, 0.3), 0 2px 6px rgba(16, 24, 40, 0.06);
+
+  --core-bg: #f1edff; --core-line: #d9ceff; --core-ink: #4b2fb0;
+  --math-bg: #e9f6ef; --math-line: #c2e5d1; --math-ink: #17633e;
+  --cs-bg: #eaf1ff;   --cs-line: #c9d8ff;   --cs-ink: #1e40af;
+  --econ-bg: #fff4e5; --econ-line: #f7d9aa; --econ-ink: #8a4b08;
+  --stat-bg: #e6f6f7; --stat-line: #bfe6e9; --stat-ink: #0f6a72;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --side: #14171c;
+  --raised: #181b21;
+  --subtle: #1b1e24;
+  --hover: #22262d;
+  --line: #2a2e36;
+  --line-soft: #1f2329;
+  --ink: #eceef2;
+  --ink-2: #c5c9d1;
+  --muted: #9aa1ad;
+  --placeholder: #6f7682;
+  --accent: #7b96ff;
+  --accent-tint: #1c2547;
+  --accent-ink: #b7c6ff;
+  --on-accent: #0f1115;
+  --button: #eceef2;
+  --on-button: #0f1115;
+  --ok-tint: #13291f;
+  --ok-ink: #9be0ba;
+  --warn-tint: #33240f;
+  --warn-ink: #f5c989;
+  --shadow: 0 30px 70px -24px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.04);
+
+  --core-bg: #241d3d; --core-line: #3a2f66; --core-ink: #cbbeff;
+  --math-bg: #13291f; --math-line: #1f4a35; --math-ink: #9be0ba;
+  --cs-bg: #16223f;   --cs-line: #24396b;   --cs-ink: #a9c2ff;
+  --econ-bg: #33240f; --econ-line: #5a3f17; --econ-ink: #f5c989;
+  --stat-bg: #0f2a2d; --stat-line: #1b4a4f; --stat-ink: #8fdce3;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-side: var(--side);
+  --color-raised: var(--raised);
+  --color-subtle: var(--subtle);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-placeholder: var(--placeholder);
+  --color-accent: var(--accent);
+  --color-accent-tint: var(--accent-tint);
+  --color-accent-ink: var(--accent-ink);
+  --color-on-accent: var(--on-accent);
+  --color-button: var(--button);
+  --color-on-button: var(--on-button);
+  --color-ok-tint: var(--ok-tint);
+  --color-ok-ink: var(--ok-ink);
+  --color-warn-tint: var(--warn-tint);
+  --color-warn-ink: var(--warn-ink);
+  --color-tone-bg: var(--tone-bg);
+  --color-tone-line: var(--tone-line);
+  --color-tone-ink: var(--tone-ink);
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --shadow-float: var(--shadow);
+}
+
+/* Department tones: put .tone-<x> on an element, then use bg-tone-bg / border-tone-line / text-tone-ink */
+.tone-core { --tone-bg: var(--core-bg); --tone-line: var(--core-line); --tone-ink: var(--core-ink); }
+.tone-math { --tone-bg: var(--math-bg); --tone-line: var(--math-line); --tone-ink: var(--math-ink); }
+.tone-cs   { --tone-bg: var(--cs-bg);   --tone-line: var(--cs-line);   --tone-ink: var(--cs-ink); }
+.tone-econ { --tone-bg: var(--econ-bg); --tone-line: var(--econ-line); --tone-ink: var(--econ-ink); }
+.tone-stat { --tone-bg: var(--stat-bg); --tone-line: var(--stat-line); --tone-ink: var(--stat-ink); }
+
+html, body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
 }
 
 body {
-  background: var(--color-paper);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  font-feature-settings: "cv11", "ss01";
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-ink);
-  outline-offset: 2px;
-}
+::placeholder { color: var(--placeholder); }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    transition-duration: 0ms !important;
-    animation-duration: 0ms !important;
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 }
 
-/* Markdown inside chat bubbles */
-.prose-chat p + p,
-.prose-chat ul,
-.prose-chat ol {
-  margin-top: 0.5rem;
+@keyframes lp-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes lp-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lp-pop  { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+
+.anim-rise { animation: lp-rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.anim-fade { animation: lp-fade 400ms ease both; }
+.anim-pop  { animation: lp-pop 240ms ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0ms !important; transition-duration: 0ms !important; }
 }
-.prose-chat ul {
-  list-style: disc;
-  padding-left: 1.1rem;
-}
-.prose-chat ol {
-  list-style: decimal;
-  padding-left: 1.1rem;
-}
-.prose-chat strong {
-  font-weight: 600;
-}
+
+/* Markdown inside chat replies */
+.prose-chat p + p, .prose-chat ul, .prose-chat ol { margin-top: 0.5rem; }
+.prose-chat ul { list-style: disc; padding-left: 1.1rem; }
+.prose-chat ol { list-style: decimal; padding-left: 1.1rem; }
+.prose-chat strong { font-weight: 600; }

@@ -1,7 +1,12 @@
 # Lionplan
 
-An AI course planner for Columbia College. Students tell it where they are, get a four-year plan, and edit it by
+An AI course planner for Columbia students. A one-question-at-a-time onboarding builds a plan, then students edit it by
 dragging courses or just asking the assistant ("swap my 9am for a stats class", "am I on track?").
+
+**Pages:** This semester and Next semester (weekly calendars), Four-year plan (grid plus requirements). The assistant
+lives in a panel that keeps its conversation across pages and can sit in the corner, dock to the bottom third, or go
+full screen. Course suggestions arrive as cards you can add, mark as already taken, or drag onto a semester or the
+calendar. Light, dark and system themes.
 
 v1 scope: **Columbia College only**, majors **Economics, Mathematics, Computer Science**, plus the Core.
 
@@ -23,6 +28,7 @@ functions.**
 
 ```
 data/courses.ts      catalog (code, title, points, prereqs, tags)
+data/sections.ts     meeting times for the calendars (SAMPLE until real sections are loaded)
 data/programs.ts     requirements as small rules: course, allOf, anyOf, choose N, points, manual
 lib/engine.ts        deterministic checker: requirement status, prereq/overload warnings, points
 lib/plan-ops.ts      the only way to change a plan: addCourse, moveCourse, removeCourse, setManual, updateProfile
@@ -30,8 +36,10 @@ lib/store.ts         client state (zustand, saved to localStorage) with undo
 lib/tools.ts         the AI's plan-editing tools (same ops as above, run in the browser)
 lib/ai-context.ts    system instructions: student profile + plan + engine output
 app/api/chat         Gemini via the Vercel AI SDK, plus server tools (search_courses, get_course)
+lib/onboarding.ts    turns messy onboarding answers ("cc", "soph", "calc 1, lit hum") into profile data
+lib/dnd.ts           drag and drop between chat cards, calendars and the four-year grid
 app/page.tsx         onboarding
-app/(app)/plan | requirements | explore
+app/(app)/this-semester | next-semester | plan
 ```
 
 Why it's built this way:
@@ -48,6 +56,7 @@ Why it's built this way:
 The catalog and requirements are **hand-entered starter data**. Each program links its source in `sourceUrl`.
 Before launch, someone needs to check every rule and course against the bulletin, and fill in:
 
+- real meeting times: `data/sections.ts` is placeholder data built from standard class slots
 - more courses (full ECON, MATH, COMS, STAT listings; Core sections)
 - the approved Science and Global Core lists (currently manual checkboxes)
 - CS tracks (only the shared major requirements are encoded)

@@ -6,10 +6,12 @@ import { persist } from "zustand/middleware";
 import type { OpResult } from "./plan-ops";
 import type { Plan } from "./types";
 
+export type ChatMode = "closed" | "corner" | "third" | "full";
+
 interface State {
   plan: Plan | null;
   history: Plan[];
-  chatOpen: boolean;
+  chatMode: ChatMode;
   /** A message to send to the AI as soon as the chat mounts (e.g. from onboarding). */
   pendingMessage: string | null;
   setPendingMessage: (m: string | null) => void;
@@ -17,7 +19,10 @@ interface State {
   /** Apply a plan operation. Successful ops are undoable. */
   apply: (op: (plan: Plan) => OpResult) => OpResult | null;
   undo: () => void;
-  setChatOpen: (open: boolean) => void;
+  setChatMode: (mode: ChatMode) => void;
+  /** Course that was just added, highlighted briefly wherever it shows up. */
+  flash: string | null;
+  flashCourse: (code: string) => void;
 }
 
 export const usePlanStore = create<State>()(
@@ -25,7 +30,7 @@ export const usePlanStore = create<State>()(
     (set, get) => ({
       plan: null,
       history: [],
-      chatOpen: false,
+      chatMode: "closed",
       pendingMessage: null,
       setPendingMessage: (pendingMessage) => set({ pendingMessage }),
       setPlan: (plan) => set({ plan, history: [] }),
@@ -41,9 +46,14 @@ export const usePlanStore = create<State>()(
         if (!history.length) return;
         set({ plan: history[history.length - 1], history: history.slice(0, -1) });
       },
-      setChatOpen: (chatOpen) => set({ chatOpen }),
+      setChatMode: (chatMode) => set({ chatMode }),
+      flash: null,
+      flashCourse: (code) => {
+        set({ flash: code });
+        setTimeout(() => get().flash === code && set({ flash: null }), 1800);
+      },
     }),
-    { name: "lionplan", partialize: (s) => ({ plan: s.plan, chatOpen: s.chatOpen }) },
+    { name: "lionplan", version: 2, partialize: (s) => ({ plan: s.plan, chatMode: s.chatMode }) },
   ),
 );
 

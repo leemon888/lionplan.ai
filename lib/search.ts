@@ -1,7 +1,7 @@
 import { COURSES } from "@/data/courses";
 import { PROGRAM_BY_ID } from "@/data/programs";
 import { matchesFilter } from "./engine";
-import type { Course, Rule } from "./types";
+import type { Course, PlanReport, Rule } from "./types";
 
 /** Every catalog course that could count toward a rule. */
 export function coursesForRule(rule: Rule): Course[] {
@@ -41,4 +41,18 @@ export function searchCourses(opts: { query?: string; dept?: string; requirement
     });
   }
   return list.slice(0, opts.limit ?? 20);
+}
+
+/** The first unmet requirement a course would count toward, e.g. "Mathematics: Electives". */
+export function openRequirementFor(code: string, report: PlanReport): string | null {
+  const ordered = [...report.programs].sort((a, b) => (a.type === b.type ? 0 : a.type === "major" ? -1 : 1));
+  for (const prog of ordered) {
+    const program = PROGRAM_BY_ID[prog.id];
+    for (const r of prog.requirements) {
+      if (r.status === "done") continue;
+      const req = program?.requirements.find((x) => x.id === r.id);
+      if (req && coursesForRule(req.rule).some((c) => c.code === code)) return `${prog.name}: ${r.name}`;
+    }
+  }
+  return null;
 }
