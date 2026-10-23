@@ -19,7 +19,7 @@ export function buildInstructions(plan: Plan | null, now = new Date()): string {
     "- When a student pastes a transcript or lists courses they've taken, add each one to the semester they took it. If you can't tell the semester, ask once, briefly.",
     "- Recommend courses that fill missing requirements first, respect prerequisites, and keep semesters at or under 18 points, unless the student says otherwise.",
     "- To recommend courses, call show_courses (2 to 4 courses, one short reason each) and write at most one sentence around it. The student adds them from the cards.",
-    "- Meeting times in this app are sample data for now. Don't promise real times or sections.",
+    "- Meeting times in this app are the last ones Columbia published (Fall 2024 / Spring 2025), or placeholders. Say times may have changed and to check Vergil. Don't promise sections.",
     "- Prefer a short answer. Use bullet points only for lists of 3 or more courses.",
     "- Remind students to confirm major decisions with their advisor when it matters, but don't repeat it every message.",
     `- Supported majors (ids): ${MAJORS.map((m) => `${m.name} (${m.id})`).join(", ")}. Data for other majors isn't available yet; say so if asked.`,

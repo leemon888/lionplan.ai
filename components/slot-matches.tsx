@@ -1,7 +1,7 @@
 "use client";
 
 import { COURSES } from "@/data/courses";
-import { conflicts, formatDays, formatTime, meetingFor } from "@/data/sections";
+import { conflicts, formatDays, formatTime, knownMeetingFor, seasonOf } from "@/data/sections";
 import { analyzePlan } from "@/lib/engine";
 import { placeCourse } from "@/lib/dnd";
 import { openRequirementFor } from "@/lib/search";
@@ -34,9 +34,12 @@ export function SlotMatches({
   const term = plan.terms.find((t) => t.id === termId)!;
   const planned = new Set(plan.terms.flatMap((t) => t.courses));
   const report = analyzePlan(plan);
-  const matches = COURSES.filter((c) => !planned.has(c.code))
+  // Only real (last published) times, only courses offered in this term's season, and no 0-point
+  // discussion or lab sections (those come with a lecture).
+  const season = seasonOf(termId);
+  const matches = COURSES.filter((c) => !planned.has(c.code) && c.points > 0 && (!c.offered || c.offered.includes(season)))
     .flatMap((c) => {
-      const m = meetingFor(c.code, termId);
+      const m = knownMeetingFor(c.code, termId);
       if (!m || !meetsDuring(m, slots)) return [];
       const clash = conflicts([...term.courses, c.code], termId).find((pair) => pair.includes(c.code));
       return [{ course: c, meeting: m, clash: clash?.find((x) => x !== c.code), req: openRequirementFor(c.code, report) }];
@@ -58,6 +61,11 @@ export function SlotMatches({
         </button>
       </div>
       {matches.length === 0 && <p className="text-[13px] text-muted">Nothing in the catalog meets during those hours. Try picking more.</p>}
+      {matches.length > 0 && (
+        <p className="mb-3 text-xs leading-relaxed text-muted">
+          Times are the last ones Columbia published for this season. Check Vergil for this year&apos;s.
+        </p>
+      )}
       <ul className="space-y-2.5">
         {matches.map(({ course, meeting, clash, req }) => (
           <li key={course.code} className={`rounded-xl border border-line bg-raised p-3.5 ${clash ? "opacity-70" : ""}`}>
@@ -68,6 +76,7 @@ export function SlotMatches({
             <h3 className="mt-0.5 text-sm font-medium">{course.title}</h3>
             <p className="mt-1 text-xs text-muted">
               {formatDays(meeting.days)} {formatTime(meeting.start)} to {formatTime(meeting.end)}
+              <span className="text-placeholder"> · time from {meeting.lastKnown}</span>
             </p>
             {req && <span className={`mt-2 inline-block rounded-md px-2 py-0.5 text-xs ${toneFor(course.code)} bg-tone-bg text-tone-ink`}>Counts toward {req}</span>}
             <div className="mt-3 flex items-center gap-3">

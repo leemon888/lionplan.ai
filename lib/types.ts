@@ -15,6 +15,10 @@ export interface Course {
   prereqs?: string[][];
   /** Free-form tags, e.g. "core", "seminar". */
   tags?: string[];
+  /** Seasons it's offered this year per the Directory of Classes: "F", "S" or "FS". Unknown if missing. */
+  offered?: string;
+  /** A Barnard course or section. Counts as undergraduate. */
+  barnard?: boolean;
 }
 
 /** Which courses a counting rule matches. All given fields must match. */

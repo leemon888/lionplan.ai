@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "import:doc": "node scripts/import-doc.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.104",

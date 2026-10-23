@@ -53,10 +53,17 @@ Why it's built this way:
 
 ## Data status (read before launch)
 
+`npm run import:doc` pulls every undergraduate-facing course offered this fall or next spring from the public
+Directory of Classes (doc.sis.columbia.edu) into `data/directory.generated.ts`, with each course's last published
+time (Fall 2024 / Spring 2025). Change `OFFERED_TERMS` in `scripts/import-doc.ts` each semester and re-run.
+Hand-entered courses in `data/courses.ts` keep their prereqs and tags; imported ones fill in the rest.
+
 The catalog and requirements are **hand-entered starter data**. Each program links its source in `sourceUrl`.
 Before launch, someone needs to check every rule and course against the bulletin, and fill in:
 
-- real meeting times: `data/sections.ts` is placeholder data built from standard class slots
+- real meeting times: the Directory of Classes stopped publishing them after Spring 2025 (they're only in Vergil,
+  behind a UNI login), so `data/sections.ts` uses each course's last published time and labels it. Ask the
+  Registrar/CUIT for a data feed of current times.
 - more courses (full ECON, MATH, COMS, STAT listings; Core sections)
 - the approved Science and Global Core lists (currently manual checkboxes)
 - CS tracks (only the shared major requirements are encoded)

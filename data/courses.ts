@@ -1,4 +1,5 @@
 import type { Course } from "@/lib/types";
+import { DOC_COURSES } from "./directory.generated";
 
 // Starter catalog for CC Core + Econ, Math, CS.
 // STARTER DATA: titles, points and prereqs are hand-entered and must be checked
@@ -120,14 +121,40 @@ export function parseCode(code: string): { dept: string; level: number } {
   return { dept, level: digit ? Number(digit) * 1000 : 0 };
 }
 
-export const COURSES: Course[] = rows.map(([code, title, points, prereqs, tags]) => ({
-  code,
-  title,
-  points,
-  ...parseCode(code),
-  ...(prereqs ? { prereqs } : {}),
-  ...(tags ? { tags } : {}),
-}));
+// Everything else offered this year, imported from the Directory of Classes (npm run import:doc).
+// Hand-entered rows above win: they carry checked titles, prereqs and tags.
+// A few hand-entered codes use a different letter prefix than the Directory (CSOR E4231 vs CSOR W4231).
+// Match the exact code first, then subject + number when only one Directory course has it
+// (BC3320 Microbiology and UN3320 are different courses, so a shared number isn't enough).
+const DOC = new Map(DOC_COURSES.map((r) => [r[0], r]));
+const numberKey = (code: string) => code.replace(/ [A-Z]*(?=\d)/, " ");
+const byNumber = new Map<string, string[]>();
+for (const [code] of DOC_COURSES) byNumber.set(numberKey(code), [...(byNumber.get(numberKey(code)) ?? []), code]);
+const docMatch = (code: string) => DOC.get(code) ?? (byNumber.get(numberKey(code))?.length === 1 ? DOC.get(byNumber.get(numberKey(code))![0]) : undefined);
+const HAND_MATCHES = new Set(rows.map((r) => docMatch(r[0])?.[0]).filter(Boolean));
+const offeredInfo = (code: string) => {
+  const d = docMatch(code);
+  return d ? { offered: d[3], ...(d[4] ? { barnard: true } : {}) } : {};
+};
+
+export const COURSES: Course[] = [
+  ...rows.map(([code, title, points, prereqs, tags]) => ({
+    code,
+    title,
+    points,
+    ...parseCode(code),
+    ...(prereqs ? { prereqs } : {}),
+    ...(tags ? { tags } : {}),
+    ...offeredInfo(code),
+  })),
+  ...DOC_COURSES.filter(([code]) => !HAND_MATCHES.has(code)).map(([code, title, points]) => ({
+    code,
+    title,
+    points,
+    ...parseCode(code),
+    ...offeredInfo(code),
+  })),
+];
 
 export const COURSE_BY_CODE: Record<string, Course> = Object.fromEntries(
   COURSES.map((c) => [c.code, c]),

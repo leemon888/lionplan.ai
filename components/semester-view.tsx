@@ -112,7 +112,7 @@ export function SemesterView({ which }: { which: "current" | "next" }) {
           .
         </p>
       )}
-      <p className="mt-3 text-xs text-muted">Meeting times are sample data until real sections are loaded.</p>
+      <p className="mt-3 text-xs text-muted">Times are the last ones published in the Directory of Classes (Fall 2024 or Spring 2025); this year&apos;s are only in Vergil. Classes with no published time show a placeholder.</p>
     </div>
   );
 }

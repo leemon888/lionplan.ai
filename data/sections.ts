@@ -1,19 +1,44 @@
 // Meeting times for the semester calendars.
 //
-// SAMPLE DATA: every time here is a placeholder built from Columbia's standard
-// class slots, so the calendar has something to show. Replace this file with
-// real sections scraped from the Directory of Classes (doc.sis.columbia.edu),
-// keyed by term, before launch. The UI always labels these as sample times.
+// Real times come from the Directory of Classes via scripts/import-doc.ts, but the
+// Directory stopped publishing them after Spring 2025 (they're only in Vergil now),
+// so each course gets its last published time for that season, marked with lastKnown.
+// Courses with no published time get a placeholder built from Columbia's standard
+// class slots so the calendar has something to show; the UI labels those as sample.
+
+import { DOC_TIME_TERMS, DOC_TIMES } from "./directory.generated";
 
 export interface Meeting {
   days: string; // "MW", "TR", "MWF"; R = Thursday
   start: string; // "10:10" (24h)
   end: string; // "11:25"
+  /** The term this real time is from, e.g. "Spring 2025". Missing for placeholder times. */
+  lastKnown?: string;
 }
 
-export const SECTIONS_ARE_SAMPLE = true;
+const KNOWN: Record<string, Meeting> = Object.fromEntries(
+  DOC_TIMES.map(([code, season, days, start, end]) => [
+    `${season}:${code}`,
+    { days, start, end, lastKnown: DOC_TIME_TERMS[season as "F" | "S"] },
+  ]),
+);
+// Hand-entered codes sometimes use another letter prefix (CSOR E4231 vs the Directory's CSOR W4231).
+// Fall back to subject + number only when exactly one Directory course has it.
+const numberKey = (code: string) => code.replace(/ [A-Z]*(?=\d)/, " ");
+const byNumber = new Map<string, Set<string>>();
+for (const [code] of DOC_TIMES) byNumber.set(numberKey(code), (byNumber.get(numberKey(code)) ?? new Set()).add(code));
 
-// A few hand-placed sample times so the demo plan has no clashes.
+/** "F2026" -> "F", "S2027" -> "S". */
+export const seasonOf = (termId: string) => termId.charAt(0);
+
+/** The last published time for a course in this term's season, or undefined if there isn't one. */
+export function knownMeetingFor(code: string, termId: string): Meeting | undefined {
+  const season = seasonOf(termId);
+  const same = byNumber.get(numberKey(code));
+  return KNOWN[`${season}:${code}`] ?? (same?.size === 1 ? KNOWN[`${season}:${[...same][0]}`] : undefined);
+}
+
+// Placeholders: a few hand-placed times so the demo plan has no clashes.
 const FIXED: Record<string, Meeting> = {
   "HUMA CC1001": { days: "MW", start: "10:10", end: "12:00" },
   "HUMA CC1002": { days: "MW", start: "10:10", end: "12:00" },
@@ -45,9 +70,11 @@ function hash(s: string) {
   return h;
 }
 
-/** Sample meeting time for a course in a term. Undefined for AP / earlier credit. */
+/** Meeting time for a course in a term: the last published one, else a placeholder. Undefined for AP / earlier credit. */
 export function meetingFor(code: string, termId: string): Meeting | undefined {
   if (termId === "PRE") return undefined;
+  const known = knownMeetingFor(code, termId);
+  if (known) return known;
   if (FIXED[code]) return FIXED[code];
   const h = hash(code);
   const [start, end] = SLOTS[h % SLOTS.length];
