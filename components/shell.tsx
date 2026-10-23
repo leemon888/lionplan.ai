@@ -92,7 +92,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
               Save your plan
             </button>
             <ThemeToggle />
-            <div className="flex items-center gap-2.5 px-2 py-1.5">
+            <Link
+              href="/profile"
+              aria-current={pathname === "/profile" ? "page" : undefined}
+              className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 ${pathname === "/profile" ? "bg-raised shadow-[0_1px_2px_rgba(16,24,40,.08),inset_0_0_0_1px_var(--line)]" : "hover:bg-hover"}`}
+            >
               <span aria-hidden="true" className="grid size-[30px] place-items-center rounded-full bg-accent-tint text-[13px] font-semibold text-accent-ink">
                 {(p.name || "?").slice(0, 1).toUpperCase()}
               </span>
@@ -102,22 +106,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   {SCHOOL_LABEL[p.school]}, {p.classYear}
                 </div>
               </div>
-            </div>
-            <button
-              onClick={() => {
-                if (confirm("Start over? This clears your plan on this device.")) usePlanStore.getState().setPlan(null);
-              }}
-              className="self-start px-2 text-xs text-muted hover:text-ink hover:underline"
-            >
-              Start over
-            </button>
+            </Link>
           </div>
         </aside>
 
         {/* phone navigation */}
         <header className="flex items-center gap-4 overflow-x-auto border-b border-line px-4 py-3 text-sm md:hidden">
           <Logo className="shrink-0" />
-          {nav.map((n) => (
+          {[...nav, { href: "/profile", label: "Profile" }].map((n) => (
             <Link key={n.href} href={n.href} className={`shrink-0 whitespace-nowrap ${pathname === n.href ? "font-medium text-ink" : "text-muted"}`}>
               {n.label}
             </Link>

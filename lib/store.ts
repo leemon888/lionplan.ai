@@ -12,6 +12,8 @@ interface State {
   plan: Plan | null;
   history: Plan[];
   chatMode: ChatMode;
+  /** Size the chat had before it was minimized, so reopening brings it back the same way. */
+  lastOpenMode: Exclude<ChatMode, "closed">;
   /** A message to send to the AI as soon as the chat mounts (e.g. from onboarding). */
   pendingMessage: string | null;
   setPendingMessage: (m: string | null) => void;
@@ -31,6 +33,7 @@ export const usePlanStore = create<State>()(
       plan: null,
       history: [],
       chatMode: "closed",
+      lastOpenMode: "corner",
       pendingMessage: null,
       setPendingMessage: (pendingMessage) => set({ pendingMessage }),
       setPlan: (plan) => set({ plan, history: [] }),
@@ -46,14 +49,17 @@ export const usePlanStore = create<State>()(
         if (!history.length) return;
         set({ plan: history[history.length - 1], history: history.slice(0, -1) });
       },
-      setChatMode: (chatMode) => set({ chatMode }),
+      setChatMode: (chatMode) => {
+        const current = get().chatMode;
+        set({ chatMode, lastOpenMode: chatMode !== "closed" ? chatMode : current !== "closed" ? current : get().lastOpenMode });
+      },
       flash: null,
       flashCourse: (code) => {
         set({ flash: code });
         setTimeout(() => get().flash === code && set({ flash: null }), 1800);
       },
     }),
-    { name: "lionplan", version: 2, partialize: (s) => ({ plan: s.plan, chatMode: s.chatMode }) },
+    { name: "lionplan", version: 2, partialize: (s) => ({ plan: s.plan, chatMode: s.chatMode, lastOpenMode: s.lastOpenMode }) },
   ),
 );
 
