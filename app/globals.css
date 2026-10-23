@@ -1,0 +1,72 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/newsreader";
+
+/*
+  Lionplan design tokens
+  - paper: cool limestone (Morningside campus), not cream
+  - ink: Columbia navy for text and completed work
+  - sky: Columbia blue marks what's planned / in progress
+  - moss: requirement satisfied
+  - amber: warnings (prereqs, heavy terms)
+*/
+@theme {
+  --color-paper: #f3f5f2;
+  --color-surface: #ffffff;
+  --color-ink: #13294b;
+  --color-ink-soft: #4a5a72;
+  --color-ink-faint: #8a96a6;
+  --color-line: #d9ded8;
+  --color-sky: #9dc6e4;
+  --color-sky-tint: #e3eff8;
+  --color-moss: #2f6b4f;
+  --color-moss-tint: #e2efe7;
+  --color-amber: #a8661a;
+  --color-amber-tint: #fbeedc;
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Newsreader Variable", ui-serif, Georgia, serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}
+
+/* Markdown inside chat bubbles */
+.prose-chat p + p,
+.prose-chat ul,
+.prose-chat ol {
+  margin-top: 0.5rem;
+}
+.prose-chat ul {
+  list-style: disc;
+  padding-left: 1.1rem;
+}
+.prose-chat ol {
+  list-style: decimal;
+  padding-left: 1.1rem;
+}
+.prose-chat strong {
+  font-weight: 600;
+}
